@@ -1,0 +1,46 @@
+<html>
+  <head>
+    <!-- <script src="http://jsdelivr.net/npm/tauri@0.8.4/"></script> -->
+  </head>
+  <body>
+    <div>
+      <input type="text" id="url" />
+      <button id="add-feed">Add Feed</button>
+    </div>
+    <button id="get-feeds">Get Feeds</button>
+    <div id="response"></div>
+    <script type="module">
+      document.getElementById('add-feed').addEventListener('click', (event) => {
+        event.preventDefault()
+        const url = document.getElementById('url').value
+        window.__TAURI__.event.emit(
+          '',
+          JSON.stringify({
+            cmd: 'addFeed',
+            url,
+          })
+        )
+      })
+      document
+        .getElementById('get-feeds')
+        .addEventListener('click', (event) => {
+          event.preventDefault()
+          window.__TAURI__.event.emit(
+            '',
+            JSON.stringify({
+              cmd: 'getFeeds',
+              url,
+            })
+          )
+        })
+
+      const log = (response) => {
+        document.getElementById('response').innerHTML = JSON.stringify(response)
+        console.log(response)
+      }
+      window.__TAURI__.event.listen('rust-error', log)
+      window.__TAURI__.event.listen('feed-added', log)
+      window.__TAURI__.event.listen('get-feeds', log)
+    </script>
+  </body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "mico",
+  "version": "0.0.1",
+  "description": "sip that sweet nectar of rss",
+  "main": "index.js",
+  "author": "zach sherman",
+  "license": "MIT",
+  "devDependencies": {
+    "tauri": "^0.8.3"
+  }
+}
