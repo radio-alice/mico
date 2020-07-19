@@ -73,19 +73,3 @@ fn emit_error_if_necessary(possible_err: Result<()>, handle: &Handle<()>) {
     Ok(_) => (),
   }
 }
-
-use rss::Channel;
-pub fn format_url(url: &str) -> String {
-  if !url.starts_with("http") {
-    return format!("https://{}", url);
-  }
-  url.to_string()
-}
-pub async fn fetch_channel(url: &str) -> Result<Channel> {
-  let feed_xml = surf::get(format_url(url))
-    .recv_bytes()
-    .await
-    .map_err(Error::msg)?;
-  let channel = Channel::read_from(&feed_xml[..])?;
-  Ok(channel)
-}
