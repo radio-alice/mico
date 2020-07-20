@@ -13,17 +13,21 @@ pub fn connect_to_db() -> Result<SqliteConnection> {
   Ok(SqliteConnection::establish(DB_PATH)?)
 }
 
-pub fn subscribe_to_feed(
-  channel: Channel,
+pub async fn subscribe_to_feed(
+  url: &str,
   connection: &SqliteConnection,
-) -> Result<()> {
-  let feed_id = add_feed(channel, connection)?;
+) -> Result<models::SendChannel> {
+  let channel = fetch_channel(url).await?;
+  let channel_model = add_feed(&channel, connection)?;
   for item in channel.into_items() {
-    add_article(item, feed_id, connection)?;
+    add_article(item, channel_model.id, connection)?;
   }
-  Ok(())
+  Ok(models::SendChannel::from(&channel_model))
 }
-fn add_feed(channel: Channel, connection: &SqliteConnection) -> Result<i32> {
+fn add_feed(
+  channel: &Channel,
+  connection: &SqliteConnection,
+) -> Result<models::Channel> {
   let pub_date = match channel.pub_date() {
     Some(date) => parse_rss_date(date)?,
     None => diesel::select(now).first(connection)?,
@@ -33,7 +37,7 @@ fn add_feed(channel: Channel, connection: &SqliteConnection) -> Result<i32> {
     url: channel.link(),
     pub_date,
   };
-  Ok(connection.transaction(|| -> Result<i32> {
+  let feed_id = connection.transaction(|| -> Result<i32> {
     diesel::insert_or_ignore_into(rss_table::table)
       .values(new_channel)
       .execute(connection)?;
@@ -44,7 +48,13 @@ fn add_feed(channel: Channel, connection: &SqliteConnection) -> Result<i32> {
         .limit(1)
         .load(connection)?[0],
     )
-  })?)
+  })?;
+  Ok(models::Channel {
+    id: feed_id,
+    url: Some(channel.link().into()),
+    pub_date,
+    title: Some(channel.title().into()),
+  })
 }
 fn parse_rss_date(date: &str) -> Result<NaiveDateTime> {
   Ok(NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")?)
@@ -101,9 +111,7 @@ async fn refresh_feed(
     // needs a refresh
     (_, _) => (),
   };
-
   add_new_articles_to_db(feed.id, updated_feed, connection);
-
   Ok(())
 }
 
@@ -145,6 +153,17 @@ fn item_is_not_in_db(
   }
 }
 
+pub fn send_all_feeds(
+  connection: &SqliteConnection,
+) -> Result<Vec<models::SendChannel>> {
+  Ok(
+    get_all_feeds(connection)?
+      .iter()
+      .map(move |channel| models::SendChannel::from(channel))
+      .collect(),
+  )
+}
+
 fn get_all_feeds(
   connection: &SqliteConnection,
 ) -> Result<Vec<models::Channel>> {
@@ -156,7 +175,7 @@ fn get_all_feeds(
         rss_table::pub_date,
         rss_table::title.nullable(),
       ))
-      .filter(rss_table::feed_id.eq(None: Option<i32>))
+      .filter(rss_table::feed_id.eq(None as Option<i32>))
       .load::<models::Channel>(connection)?,
   )
 }

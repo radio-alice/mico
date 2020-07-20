@@ -7,8 +7,7 @@ extern crate diesel;
 pub mod models;
 pub mod schema;
 
-use anyhow::{anyhow, Error, Result};
-use std::collections::HashSet;
+use anyhow::{anyhow, Result};
 use tauri::event;
 use web_view::{Handle, WebView};
 mod cmd;
@@ -21,8 +20,6 @@ fn main() {
 
 fn setup(webview: &mut WebView<()>, _message: String) {
   let handle = webview.handle();
-  let db_init = db::setup_db();
-  emit_error_if_necessary(db_init, &handle);
 
   tauri::event::listen("", move |msg| {
     let msg = match msg {
@@ -38,20 +35,12 @@ fn setup(webview: &mut WebView<()>, _message: String) {
         match serde_json::from_str(&msg)? {
           AddFeed { url } => {
             let connection = db::connect_to_db()?;
-            let feed_id = db::add_feed(&url, &HashSet::new(), &connection)?;
-            event::emit(
-              &handle,
-              String::from("feed-added"),
-              Some(Feed {
-                id: feed_id,
-                url: url,
-                tags: HashSet::new(),
-              }),
-            )?
+            let channel = db::subscribe_to_feed(&url, &connection).await?;
+            event::emit(&handle, String::from("feed-added"), Some(channel))?
           }
           GetFeeds {} => {
             let connection = db::connect_to_db()?;
-            let feeds = db::get_feeds(&connection);
+            let feeds = db::send_all_feeds(&connection);
             event::emit(&handle, "get-feeds", Some(feeds?))?
           }
         }
@@ -64,15 +53,11 @@ fn setup(webview: &mut WebView<()>, _message: String) {
 }
 
 fn emit_error_if_necessary(possible_err: Result<()>, handle: &Handle<()>) {
-  match possible_err {
-    Err(e) => {
-      let error_emitted =
-        event::emit(handle, String::from("rust-error"), Some(e.to_string()));
-      match error_emitted {
-        Err(e) => eprintln!("{}", e),
-        Ok(_) => (),
-      };
-    }
-    Ok(_) => (),
+  if let Err(e) = possible_err {
+    let error_emitted =
+      event::emit(handle, String::from("rust-error"), Some(e.to_string()));
+    if let Err(e) = error_emitted {
+      eprintln!("{}", e)
+    };
   }
 }
