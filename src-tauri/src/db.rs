@@ -2,11 +2,8 @@ use super::models;
 use super::schema::rss as rss_table;
 use anyhow::{Error, Result};
 use chrono::NaiveDateTime;
-use diesel::prelude::*;
-// use diesel::connection::Connection;
 use diesel::dsl::{exists, now};
-// use diesel::sqlite::SqliteConnection;
-// use diesel::{ExpressionMethods, RunQueryDsl};
+use diesel::prelude::*;
 use rss::{Channel, Item};
 
 const DB_PATH: &str = "./test.db";
