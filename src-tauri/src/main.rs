@@ -21,6 +21,19 @@ fn main() {
 fn setup(webview: &mut WebView<()>, _message: String) {
   let handle = webview.handle();
 
+  // uncomment to clear db at init
+  // smol::run(async {
+  //   let connection = db::connect_to_db()?;
+  //   db::delete_all_feeds(&connection)?;
+  //   Ok(())
+  // }) as Result<()>;
+  let refresh_result: Result<()> = smol::run(async {
+    let connection = db::connect_to_db()?;
+    db::refresh_all_feeds(&connection).await?;
+    Ok(())
+  });
+  emit_error_if_necessary(refresh_result, &handle);
+
   tauri::event::listen("", move |msg| {
     let msg = match msg {
       Some(msg) => msg,
@@ -32,16 +45,15 @@ fn setup(webview: &mut WebView<()>, _message: String) {
     };
     let msg_result: Result<()> = {
       smol::run(async {
+        let connection = db::connect_to_db()?;
         match serde_json::from_str(&msg)? {
           AddFeed { url } => {
-            let connection = db::connect_to_db()?;
             let channel = db::subscribe_to_feed(&url, &connection).await?;
             event::emit(&handle, String::from("feed-added"), Some(channel))?
           }
           GetFeeds {} => {
-            let connection = db::connect_to_db()?;
-            let feeds = db::send_all_feeds(&connection);
-            event::emit(&handle, "get-feeds", Some(feeds?))?
+            let feeds = db::send_all_feeds(&connection)?;
+            event::emit(&handle, "get-feeds", Some(feeds))?
           }
         }
         Ok(())
