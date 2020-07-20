@@ -2,6 +2,10 @@
   all(not(debug_assertions), target_os = "windows"),
   windows_subsystem = "windows"
 )]
+#[macro_use]
+extern crate diesel;
+pub mod models;
+pub mod schema;
 
 use anyhow::{anyhow, Error, Result};
 use std::collections::HashSet;
@@ -10,7 +14,6 @@ use web_view::{Handle, WebView};
 mod cmd;
 use cmd::Cmd::*;
 mod db;
-use db::Feed;
 
 fn main() {
   tauri::AppBuilder::new().setup(setup).build().run();
