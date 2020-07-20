@@ -111,7 +111,7 @@ async fn refresh_feed(
     // needs a refresh
     (_, _) => (),
   };
-  add_new_articles_to_db(feed.id, updated_feed, connection);
+  add_new_articles_to_db(feed.id, updated_feed, connection)?;
   Ok(())
 }
 
@@ -128,7 +128,7 @@ fn add_new_articles_to_db(
 
   for item in channel.into_items() {
     if item_is_not_in_db(&item, newest_article_date, connection)? {
-      add_article(item, feed_id, connection);
+      add_article(item, feed_id, connection)?;
     }
   }
   Ok(())
@@ -173,7 +173,7 @@ fn get_all_feeds(
         dsl::pub_date,
         dsl::title.nullable(),
       ))
-      .filter(dsl::feed_id.eq(None as Option<i32>))
+      .filter(dsl::feed_id.is_null())
       .load::<models::Channel>(connection)?,
   )
 }
