@@ -1,10 +1,10 @@
 use super::models;
-use super::schema::rss as rss_table;
+use super::schema::rss::dsl;
+use ::rss::{Channel, Item};
 use anyhow::{Error, Result};
 use chrono::NaiveDateTime;
 use diesel::dsl::{exists, now};
 use diesel::prelude::*;
-use rss::{Channel, Item};
 
 const DB_PATH: &str = "./test.db";
 
@@ -38,13 +38,13 @@ fn add_feed(
     pub_date,
   };
   let feed_id = connection.transaction(|| -> Result<i32> {
-    diesel::insert_or_ignore_into(rss_table::table)
+    diesel::insert_or_ignore_into(dsl::rss)
       .values(new_channel)
       .execute(connection)?;
     Ok(
-      rss_table::table
-        .select(rss_table::id)
-        .order(rss_table::id.desc())
+      dsl::rss
+        .select(dsl::id)
+        .order(dsl::id.desc())
         .limit(1)
         .load(connection)?[0],
     )
@@ -81,7 +81,7 @@ fn add_article(
     },
     read: false,
   };
-  diesel::insert_or_ignore_into(rss_table::table)
+  diesel::insert_or_ignore_into(dsl::rss)
     .values(new_item)
     .execute(connection)?;
   Ok(())
@@ -120,9 +120,9 @@ fn add_new_articles_to_db(
   channel: Channel,
   connection: &SqliteConnection,
 ) -> Result<()> {
-  let newest_article_date: NaiveDateTime = rss_table::table
-    .select(rss_table::pub_date)
-    .order(rss_table::pub_date)
+  let newest_article_date: NaiveDateTime = dsl::rss
+    .select(dsl::pub_date)
+    .order(dsl::pub_date)
     .limit(1)
     .load(connection)?[0];
 
@@ -143,10 +143,8 @@ fn item_is_not_in_db(
     Ok(parse_rss_date(date)? > newest_article_date)
   } else if let Some(title) = item.title() {
     Ok(
-      diesel::select(exists(
-        rss_table::table.filter(rss_table::title.eq(title)),
-      ))
-      .get_result(connection)?,
+      diesel::select(exists(dsl::rss.filter(dsl::title.eq(title))))
+        .get_result(connection)?,
     )
   } else {
     Ok(true)
@@ -168,21 +166,20 @@ fn get_all_feeds(
   connection: &SqliteConnection,
 ) -> Result<Vec<models::Channel>> {
   Ok(
-    rss_table::table
+    dsl::rss
       .select((
-        rss_table::id,
-        rss_table::url.nullable(),
-        rss_table::pub_date,
-        rss_table::title.nullable(),
+        dsl::id,
+        dsl::url.nullable(),
+        dsl::pub_date,
+        dsl::title.nullable(),
       ))
-      .filter(rss_table::feed_id.eq(None as Option<i32>))
+      .filter(dsl::feed_id.eq(None as Option<i32>))
       .load::<models::Channel>(connection)?,
   )
 }
 
 pub fn unsubscribe(feed_id: i32, connection: &SqliteConnection) -> Result<()> {
-  diesel::delete(rss_table::table.filter(rss_table::id.eq(feed_id)))
-    .execute(connection)?;
+  diesel::delete(dsl::rss.filter(dsl::id.eq(feed_id))).execute(connection)?;
   Ok(())
 }
 
@@ -190,7 +187,7 @@ pub fn remove_stories_from_unsubbed_feed(
   feed_id: i32,
   connection: &SqliteConnection,
 ) -> Result<()> {
-  diesel::delete(rss_table::table.filter(rss_table::feed_id.eq(feed_id)))
+  diesel::delete(dsl::rss.filter(dsl::feed_id.eq(feed_id)))
     .execute(connection)?;
   Ok(())
 }
