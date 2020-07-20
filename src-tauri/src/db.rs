@@ -18,7 +18,7 @@ pub async fn subscribe_to_feed(
   connection: &SqliteConnection,
 ) -> Result<models::SendChannel> {
   let channel = fetch_channel(url).await?;
-  let channel_model = add_feed(&channel, connection)?;
+  let channel_model = add_feed(&channel, url, connection)?;
   for item in channel.into_items() {
     add_article(item, channel_model.id, connection)?;
   }
@@ -26,15 +26,19 @@ pub async fn subscribe_to_feed(
 }
 fn add_feed(
   channel: &Channel,
+  url: &str,
   connection: &SqliteConnection,
 ) -> Result<models::Channel> {
   let pub_date = match channel.pub_date() {
     Some(date) => parse_rss_date(date)?,
-    None => diesel::select(now).first(connection)?,
+    None => match channel.last_build_date() {
+      Some(date) => parse_rss_date(date)?,
+      None => diesel::select(now).first(connection)?,
+    },
   };
   let new_channel = models::NewChannel {
     title: channel.title(),
-    url: channel.link(),
+    url,
     pub_date,
   };
   let feed_id = connection.transaction(|| -> Result<i32> {
@@ -86,6 +90,10 @@ fn add_article(
     .execute(connection)?;
   Ok(())
 }
+pub fn delete_all_feeds(connection: &SqliteConnection) -> Result<()> {
+  diesel::delete(dsl::rss).execute(connection)?;
+  Ok(())
+}
 
 pub async fn refresh_all_feeds(connection: &SqliteConnection) -> Result<()> {
   for feed in get_all_feeds(connection)? {
@@ -100,6 +108,7 @@ async fn refresh_feed(
   let updated_feed =
     fetch_channel(&feed.url.expect("somehow stored a feed with no url"))
       .await?;
+
   // check if we can tell it *doesn't* need a refresh
   match (updated_feed.pub_date(), updated_feed.last_build_date()) {
     (Some(date), _) | (_, Some(date)) => {
