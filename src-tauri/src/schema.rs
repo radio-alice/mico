@@ -9,7 +9,7 @@ table! {
 table! {
     rss (id) {
         id -> Integer,
-        url -> Text,
+        url -> Nullable<Text>,
         feed_id -> Nullable<Integer>,
         read -> Nullable<Bool>,
         pub_date -> Timestamp,
