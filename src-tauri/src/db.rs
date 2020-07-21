@@ -48,6 +48,7 @@ fn add_feed(
     Ok(
       dsl::rss
         .select(dsl::id)
+        .filter(dsl::feed_id.is_null())
         .order(dsl::id.desc())
         .limit(1)
         .load(connection)?[0],
@@ -69,8 +70,17 @@ fn add_article(
   connection: &SqliteConnection,
 ) -> Result<()> {
   let new_item = models::NewItem {
-    url: item.link(),
-    title: item.title(),
+    url: match item.link() {
+      Some(url) => Some(url),
+      None => match item.source() {
+        Some(source) => Some(source.url()),
+        None => None
+      },
+    },
+    title: match item.title() {
+      Some(title) => title,
+      None => "[Untitled Post]"
+    },
     feed_id,
     content: match item.content() {
       None => match item.description(){
@@ -94,7 +104,26 @@ pub fn delete_all_feeds(connection: &SqliteConnection) -> Result<()> {
   diesel::delete(dsl::rss).execute(connection)?;
   Ok(())
 }
-
+fn get_items_by_feed(
+  feed_id: i32,
+  connection: &SqliteConnection,
+) -> Result<Vec<models::Item>> {
+  Ok(
+    dsl::rss
+      .select((
+        dsl::id,
+        dsl::url.nullable(),
+        dsl::feed_id,
+        dsl::read,
+        dsl::pub_date,
+        dsl::content,
+        dsl::title.nullable(),
+      ))
+      .filter(dsl::feed_id.eq(feed_id))
+      .order(dsl::id.desc())
+      .load(connection)?,
+  )
+}
 pub async fn refresh_all_feeds(connection: &SqliteConnection) -> Result<()> {
   for feed in get_all_feeds(connection)? {
     refresh_feed(feed, connection).await?;
@@ -134,9 +163,9 @@ fn add_new_articles_to_db(
     .order(dsl::pub_date)
     .limit(1)
     .load(connection)?[0];
-
+  let old_items = get_items_by_feed(feed_id, connection)?;
   for item in channel.into_items() {
-    if item_is_not_in_db(&item, newest_article_date, connection)? {
+    if item_is_not_in_db(&item, newest_article_date, &old_items)? {
       add_article(item, feed_id, connection)?;
     }
   }
@@ -146,14 +175,15 @@ fn add_new_articles_to_db(
 fn item_is_not_in_db(
   item: &Item,
   newest_article_date: NaiveDateTime,
-  connection: &SqliteConnection,
+  old_items: &[models::Item],
 ) -> Result<bool> {
   if let Some(date) = item.pub_date() {
     Ok(parse_rss_date(date)? > newest_article_date)
   } else if let Some(title) = item.title() {
     Ok(
-      diesel::select(exists(dsl::rss.filter(dsl::title.eq(title))))
-        .get_result(connection)?,
+      old_items
+        .iter()
+        .any(|item| item.title != Some(title.into())),
     )
   } else {
     Ok(true)
