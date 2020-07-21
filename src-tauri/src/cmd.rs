@@ -5,4 +5,5 @@ use serde::Deserialize;
 pub enum Cmd {
   AddFeed { url: String },
   GetFeeds {},
+  GetItemsByFeed { id: i32 },
 }

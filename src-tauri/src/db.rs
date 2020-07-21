@@ -3,7 +3,7 @@ use super::schema::rss::dsl;
 use ::rss::{Channel, Item};
 use anyhow::{Error, Result};
 use chrono::NaiveDateTime;
-use diesel::dsl::{exists, now};
+use diesel::dsl::now;
 use diesel::prelude::*;
 
 const DB_PATH: &str = "./test.db";
@@ -104,6 +104,17 @@ pub fn delete_all_feeds(connection: &SqliteConnection) -> Result<()> {
   diesel::delete(dsl::rss).execute(connection)?;
   Ok(())
 }
+pub fn send_items_by_feed(
+  feed_id: i32,
+  connection: &SqliteConnection,
+) -> Result<Vec<models::SendItem>> {
+  Ok(
+    get_items_by_feed(feed_id, connection)?
+      .iter()
+      .map(models::SendItem::from)
+      .collect(),
+  )
+}
 fn get_items_by_feed(
   feed_id: i32,
   connection: &SqliteConnection,
@@ -196,7 +207,7 @@ pub fn send_all_feeds(
   Ok(
     get_all_feeds(connection)?
       .iter()
-      .map(move |channel| models::SendChannel::from(channel))
+      .map(models::SendChannel::from)
       .collect(),
   )
 }

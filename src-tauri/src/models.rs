@@ -80,8 +80,8 @@ pub struct SendItem {
   pub title: String,
 }
 impl SendItem {
-  fn from(item: &Item) -> Self {
-    // expects reasonable as these fields are created with item
+  pub fn from(item: &Item) -> Self {
+    // .expects reasonable as these fields are created with item
     SendItem {
       id: item.id,
       url: item.url.clone(),

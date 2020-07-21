@@ -55,6 +55,10 @@ fn setup(webview: &mut WebView<()>, _message: String) {
             let feeds = db::send_all_feeds(&connection)?;
             event::emit(&handle, "get-feeds", Some(feeds))?
           }
+          GetItemsByFeed { id } => {
+            let items = db::send_items_by_feed(id, &connection)?;
+            event::emit(&handle, "items-by-feed", Some((items, id)))?
+          }
         }
         Ok(())
       })
