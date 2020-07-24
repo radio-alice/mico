@@ -4,12 +4,12 @@
 )]
 #[macro_use]
 extern crate diesel;
-pub mod models;
-pub mod schema;
+mod models;
+mod schema;
 
 use anyhow::{anyhow, Result};
 use tauri::event;
-use web_view::{Handle, WebView};
+use webview_official::{Webview, WebviewMut};
 mod cmd;
 use cmd::Cmd::*;
 mod db;
@@ -18,9 +18,8 @@ fn main() {
   tauri::AppBuilder::new().setup(setup).build().run();
 }
 
-fn setup(webview: &mut WebView<()>, _message: String) {
-  let handle = webview.handle();
-
+fn setup(webview: &mut Webview, _message: String) {
+  let mut webview_mut = webview.as_mut();
   // uncomment to clear db at init
   // smol::run(async {
   //   let connection = db::connect_to_db()?;
@@ -32,14 +31,17 @@ fn setup(webview: &mut WebView<()>, _message: String) {
     db::refresh_all_feeds(&connection).await?;
     Ok(())
   });
-  emit_error_if_necessary(refresh_result, &handle);
+  emit_error_if_necessary(refresh_result, &mut webview_mut);
 
   tauri::event::listen("", move |msg| {
     let msg = match msg {
       Some(msg) => msg,
       None => {
         eprintln!("No message!");
-        emit_error_if_necessary(Err(anyhow!("received empty event")), &handle);
+        emit_error_if_necessary(
+          Err(anyhow!("received empty event")),
+          &mut webview_mut,
+        );
         return;
       }
     };
@@ -49,29 +51,33 @@ fn setup(webview: &mut WebView<()>, _message: String) {
         match serde_json::from_str(&msg)? {
           AddFeed { url } => {
             let channel = db::subscribe_to_feed(&url, &connection).await?;
-            event::emit(&handle, String::from("feed-added"), Some(channel))?
+            event::emit(
+              &mut webview_mut,
+              String::from("feed-added"),
+              Some(channel),
+            )?
           }
           GetFeeds {} => {
             let feeds = db::send_all_feeds(&connection)?;
-            event::emit(&handle, "get-feeds", Some(feeds))?
+            event::emit(&mut webview_mut, "get-feeds", Some(feeds))?
           }
           GetItemsByFeed { id } => {
             let items = db::send_items_by_feed(id, &connection)?;
-            event::emit(&handle, "items-by-feed", Some((items, id)))?
+            event::emit(&mut webview_mut, "items-by-feed", Some((items, id)))?
           }
         }
         Ok(())
       })
     };
 
-    emit_error_if_necessary(msg_result, &handle)
+    emit_error_if_necessary(msg_result, &mut webview_mut)
   });
 }
 
-fn emit_error_if_necessary(possible_err: Result<()>, handle: &Handle<()>) {
+fn emit_error_if_necessary(possible_err: Result<()>, webview: &mut WebviewMut) {
   if let Err(e) = possible_err {
     let error_emitted =
-      event::emit(handle, String::from("rust-error"), Some(e.to_string()));
+      event::emit(webview, String::from("rust-error"), Some(e.to_string()));
     if let Err(e) = error_emitted {
       eprintln!("{}", e)
     };

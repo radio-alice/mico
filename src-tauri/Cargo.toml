@@ -1,7 +1,7 @@
 [package]
 name = "mico"
 version = "0.1.0"
-description = "mico"
+description = "mico backend"
 authors = [ "zach" ]
 license = ""
 repository = ""
@@ -12,16 +12,14 @@ build = "src/build.rs"
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = [ "derive" ] }
-tauri = { version = "0.7.5", features = [ "all-api", "edge" ] }
 rss = "1.9.0"
-rusqlite = { version = "0.23.1", features = [ "bundled", "chrono", "array" ] }
-bincode = "1.3.1"
 surf = "1.0.3"
 anyhow = "1.0.31"
-smol = "0.1.18"
-tauri-web-view = "0.6.2"
+smol = "0.3.2"
 chrono = "0.4.13"
 diesel = { version = "1.4.5", features = [ "sqlite", "chrono" ] }
+webview_official = "0.0.1"
+tauri = "0.8.0"
 
 [target."cfg(windows)".build-dependencies]
 winres = "0.1"

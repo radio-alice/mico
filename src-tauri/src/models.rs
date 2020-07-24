@@ -18,7 +18,6 @@ pub struct NewChannel<'a> {
   pub pub_date: NaiveDateTime,
   pub title: &'a str,
 }
-
 #[derive(Serialize)]
 pub struct SendChannel {
   pub id: i32,
@@ -26,7 +25,6 @@ pub struct SendChannel {
   pub date: String,
   pub title: String,
 }
-
 impl SendChannel {
   pub fn from(channel: &Channel) -> Self {
     // `.expect`s below are reasonable due to valid channels requiring title + url
@@ -101,6 +99,7 @@ impl SendItem {
     }
   }
 }
+
 #[derive(Queryable)]
 pub struct Tag<'a> {
   pub id: i32,

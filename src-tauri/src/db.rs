@@ -74,24 +74,24 @@ fn add_article(
       Some(url) => Some(url),
       None => match item.source() {
         Some(source) => Some(source.url()),
-        None => None
+        None => None,
       },
     },
     title: match item.title() {
       Some(title) => title,
-      None => "[Untitled Post]"
+      None => "[Untitled Post]",
     },
     feed_id,
     content: match item.content() {
-      None => match item.description(){
+      None => match item.description() {
         Some(description) => description,
-        None => "They didn't give us any content. Click the link to view article (hopefully 🥵)."
+        None => "They didn't give us any content. Click the link to view article (hopefully 🥵).",
       },
       Some(content) => content,
     },
     pub_date: match item.pub_date() {
       Some(date) => parse_rss_date(date)?,
-    None => diesel::select(now).first(connection)?,
+      None => diesel::select(now).first(connection)?,
     },
     read: false,
   };

@@ -6,6 +6,6 @@
   "author": "zach sherman",
   "license": "MIT",
   "devDependencies": {
-    "tauri": "^0.8.3"
+    "tauri": "^0.8.4"
   }
 }
