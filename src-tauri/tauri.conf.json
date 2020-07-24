@@ -1,20 +1,19 @@
 {
   "build": {
-    "distDir": "../dist",
-    "devPath": "../dist",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "withGlobalTauri": true
+    "distDir": "../src-frontend/public",
+    "devPath": "http://localhost:5000",
+    "beforeDevCommand": "cd src-frontend && yarn dev",
+    "beforeBuildCommand": "cd src-frontend && yarn build"
   },
   "ctx": {},
   "tauri": {
     "embeddedServer": {
-      "active": true
+      "active": false
     },
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.mico.anemones",
+      "identifier": "com.anemones.mico",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -25,7 +24,7 @@
       "resources": [],
       "externalBin": [],
       "copyright": "",
-      "category": "RSS-Reader",
+      "category": "DeveloperTool",
       "shortDescription": "",
       "longDescription": "",
       "deb": {
@@ -39,11 +38,11 @@
       },
       "exceptionDomain": ""
     },
-    "whitelist": {
+    "allowlist": {
       "all": true
     },
     "window": {
-      "title": "Mico",
+      "title": "mico",
       "width": 800,
       "height": 600,
       "resizable": true,
@@ -51,9 +50,6 @@
     },
     "security": {
       "csp": "default-src blob: data: filesystem: ws: http: https: 'unsafe-eval' 'unsafe-inline'"
-    },
-    "edge": {
-      "active": true
     },
     "inliner": {
       "active": true

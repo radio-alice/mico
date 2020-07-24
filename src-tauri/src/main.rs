@@ -49,21 +49,25 @@ fn setup(webview: &mut Webview, _message: String) {
       smol::run(async {
         let connection = db::connect_to_db()?;
         match serde_json::from_str(&msg)? {
-          AddFeed { url } => {
+          Subscribe { url } => {
             let channel = db::subscribe_to_feed(&url, &connection).await?;
             event::emit(
               &mut webview_mut,
-              String::from("feed-added"),
+              String::from("subscribed"),
               Some(channel),
             )?
           }
-          GetFeeds {} => {
+          GetChannels {} => {
             let feeds = db::send_all_feeds(&connection)?;
-            event::emit(&mut webview_mut, "get-feeds", Some(feeds))?
+            event::emit(&mut webview_mut, "get-channels", Some(feeds))?
           }
-          GetItemsByFeed { id } => {
+          GetItemsByChannel { id } => {
             let items = db::send_items_by_feed(id, &connection)?;
-            event::emit(&mut webview_mut, "items-by-feed", Some((items, id)))?
+            event::emit(
+              &mut webview_mut,
+              "items-by-channel",
+              Some((items, id)),
+            )?
           }
         }
         Ok(())
