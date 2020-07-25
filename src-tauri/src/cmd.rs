@@ -5,5 +5,5 @@ use serde::Deserialize;
 pub enum Cmd {
   Subscribe { url: String },
   GetChannels {},
-  GetItemsByChannel { id: i32 },
+  GetItems {},
 }

@@ -29,6 +29,10 @@ fn setup(webview: &mut Webview, _message: String) {
   let refresh_result: Result<()> = smol::run(async {
     let connection = db::connect_to_db()?;
     db::refresh_all_feeds(&connection).await?;
+    let items = db::send_all_items(&connection)?;
+    event::emit(&mut webview_mut, "allItems", Some(items))?;
+    let feeds = db::send_all_feeds(&connection)?;
+    event::emit(&mut webview_mut, "allChannels", Some(feeds))?;
     Ok(())
   });
   emit_error_if_necessary(refresh_result, &mut webview_mut);
@@ -55,19 +59,15 @@ fn setup(webview: &mut Webview, _message: String) {
               &mut webview_mut,
               String::from("subscribed"),
               Some(channel),
-            )?
+            )?;
           }
           GetChannels {} => {
             let feeds = db::send_all_feeds(&connection)?;
-            event::emit(&mut webview_mut, "get-channels", Some(feeds))?
+            event::emit(&mut webview_mut, "allChannels", Some(feeds))?
           }
-          GetItemsByChannel { id } => {
-            let items = db::send_items_by_feed(id, &connection)?;
-            event::emit(
-              &mut webview_mut,
-              "items-by-channel",
-              Some((items, id)),
-            )?
+          GetItems {} => {
+            let items = db::send_all_items(&connection)?;
+            event::emit(&mut webview_mut, "allItems", Some(items))?
           }
         }
         Ok(())

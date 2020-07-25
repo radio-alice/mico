@@ -49,7 +49,7 @@ fn add_feed(
       dsl::rss
         .select(dsl::id)
         .filter(dsl::feed_id.is_null())
-        .order(dsl::id.desc())
+        .order(dsl::pub_date.desc())
         .limit(1)
         .load(connection)?[0],
     )
@@ -131,7 +131,7 @@ fn get_items_by_feed(
         dsl::title.nullable(),
       ))
       .filter(dsl::feed_id.eq(feed_id))
-      .order(dsl::id.desc())
+      .order(dsl::pub_date.desc())
       .load(connection)?,
   )
 }
@@ -227,7 +227,33 @@ fn get_all_feeds(
       .load::<models::Channel>(connection)?,
   )
 }
-
+pub fn send_all_items(
+  connection: &SqliteConnection,
+) -> Result<Vec<models::SendItem>> {
+  Ok(
+    get_all_items(connection)?
+      .iter()
+      .map(models::SendItem::from)
+      .collect(),
+  )
+}
+fn get_all_items(connection: &SqliteConnection) -> Result<Vec<models::Item>> {
+  Ok(
+    dsl::rss
+      .select((
+        dsl::id,
+        dsl::url.nullable(),
+        dsl::feed_id,
+        dsl::read,
+        dsl::pub_date,
+        dsl::content,
+        dsl::title.nullable(),
+      ))
+      .filter(dsl::feed_id.is_not_null())
+      .order(dsl::pub_date.desc())
+      .load(connection)?,
+  )
+}
 pub fn unsubscribe(feed_id: i32, connection: &SqliteConnection) -> Result<()> {
   diesel::delete(dsl::rss.filter(dsl::id.eq(feed_id))).execute(connection)?;
   Ok(())
