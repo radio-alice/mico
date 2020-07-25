@@ -1,10 +1,10 @@
 use super::models;
 use super::schema::rss::dsl;
-use ::rss::{Channel, Item};
 use anyhow::{Error, Result};
 use chrono::NaiveDateTime;
 use diesel::dsl::now;
 use diesel::prelude::*;
+use futures::future::try_join_all;
 
 const DB_PATH: &str = "./test.db";
 
@@ -17,15 +17,16 @@ pub async fn subscribe_to_feed(
   url: &str,
   connection: &SqliteConnection,
 ) -> Result<models::SendChannel> {
-  let channel = fetch_channel(url).await?;
-  let channel_model = add_feed(&channel, url, connection)?;
-  for item in channel.into_items() {
+  let channel_xml = surf::get(url).recv_bytes().await.map_err(Error::msg)?;
+  let rss_channel = rss::Channel::read_from(&channel_xml[..])?;
+  let channel_model = add_feed(&rss_channel, url, connection)?;
+  for item in rss_channel.into_items() {
     add_article(item, channel_model.id, connection)?;
   }
   Ok(models::SendChannel::from(&channel_model))
 }
 fn add_feed(
-  channel: &Channel,
+  channel: &rss::Channel,
   url: &str,
   connection: &SqliteConnection,
 ) -> Result<models::Channel> {
@@ -65,7 +66,7 @@ fn parse_rss_date(date: &str) -> Result<NaiveDateTime> {
   Ok(NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")?)
 }
 fn add_article(
-  item: Item,
+  item: rss::Item,
   feed_id: i32,
   connection: &SqliteConnection,
 ) -> Result<()> {
@@ -100,7 +101,7 @@ fn add_article(
     .execute(connection)?;
   Ok(())
 }
-pub fn delete_all_feeds(connection: &SqliteConnection) -> Result<()> {
+pub fn delete_all_channels(connection: &SqliteConnection) -> Result<()> {
   diesel::delete(dsl::rss).execute(connection)?;
   Ok(())
 }
@@ -135,22 +136,38 @@ fn get_items_by_feed(
       .load(connection)?,
   )
 }
-pub async fn refresh_all_feeds(connection: &SqliteConnection) -> Result<()> {
-  for feed in get_all_feeds(connection)? {
-    refresh_feed(feed, connection).await?;
+pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
+  let all_channels = get_all_channels(connection)?;
+  // handle all these requests together so that we can join the asyncs together
+  // TODO use a thread pool here?
+  // TODO handle offline elegantly
+  let all_refresh_requests = all_channels.iter().map(|feed| {
+    surf::get(
+      feed
+        .url
+        .as_ref()
+        .expect("somehow stored a feed with no url"),
+    )
+    .recv_bytes()
+  });
+  let all_new_xml = try_join_all(all_refresh_requests)
+    .await
+    .map_err(Error::msg)?;
+  let all_new_channels = all_new_xml
+    .iter()
+    .map(|feed_xml| rss::Channel::read_from(&feed_xml[..]));
+  for (channel, new_channel) in all_channels.iter().zip(all_new_channels) {
+    refresh_feed(channel, new_channel?, connection);
   }
   Ok(())
 }
-async fn refresh_feed(
-  feed: models::Channel,
+fn refresh_feed(
+  feed: &models::Channel,
+  new_feed: rss::Channel,
   connection: &SqliteConnection,
 ) -> Result<()> {
-  let updated_feed =
-    fetch_channel(&feed.url.expect("somehow stored a feed with no url"))
-      .await?;
-
   // check if we can tell it *doesn't* need a refresh
-  match (updated_feed.pub_date(), updated_feed.last_build_date()) {
+  match (new_feed.pub_date(), new_feed.last_build_date()) {
     (Some(date), _) | (_, Some(date)) => {
       if parse_rss_date(date)? <= feed.pub_date {
         return Ok(());
@@ -160,13 +177,13 @@ async fn refresh_feed(
     // needs a refresh
     (_, _) => (),
   };
-  add_new_articles_to_db(feed.id, updated_feed, connection)?;
+  add_new_articles_to_db(feed.id, new_feed, connection)?;
   Ok(())
 }
 
 fn add_new_articles_to_db(
   feed_id: i32,
-  channel: Channel,
+  channel: rss::Channel,
   connection: &SqliteConnection,
 ) -> Result<()> {
   let newest_article_date: NaiveDateTime = dsl::rss
@@ -184,7 +201,7 @@ fn add_new_articles_to_db(
 }
 
 fn item_is_not_in_db(
-  item: &Item,
+  item: &rss::Item,
   newest_article_date: NaiveDateTime,
   old_items: &[models::Item],
 ) -> Result<bool> {
@@ -201,18 +218,18 @@ fn item_is_not_in_db(
   }
 }
 
-pub fn send_all_feeds(
+pub fn send_all_channels(
   connection: &SqliteConnection,
 ) -> Result<Vec<models::SendChannel>> {
   Ok(
-    get_all_feeds(connection)?
+    get_all_channels(connection)?
       .iter()
       .map(models::SendChannel::from)
       .collect(),
   )
 }
 
-fn get_all_feeds(
+fn get_all_channels(
   connection: &SqliteConnection,
 ) -> Result<Vec<models::Channel>> {
   Ok(
@@ -278,12 +295,4 @@ fn format_url(url: &str) -> String {
     return format!("https://{}", url);
   }
   url.to_string()
-}
-async fn fetch_channel(url: &str) -> Result<Channel> {
-  let feed_xml = surf::get(format_url(url))
-    .recv_bytes()
-    .await
-    .map_err(Error::msg)?;
-  let channel = Channel::read_from(&feed_xml[..])?;
-  Ok(channel)
 }

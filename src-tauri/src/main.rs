@@ -23,15 +23,19 @@ fn setup(webview: &mut Webview, _message: String) {
   // uncomment to clear db at init
   // smol::run(async {
   //   let connection = db::connect_to_db()?;
-  //   db::delete_all_feeds(&connection)?;
+  //   db::delete_all_channels(&connection)?;
   //   Ok(())
   // }) as Result<()>;
+
+  // TODO - split sending data to client from refreshing
+  // TODO - handle offline refreshes elegantly
+  // TODO - learn how async works and multithread everywhere u can
   let refresh_result: Result<()> = smol::run(async {
     let connection = db::connect_to_db()?;
-    db::refresh_all_feeds(&connection).await?;
+    db::refresh_all_channels(&connection).await?;
     let items = db::send_all_items(&connection)?;
     event::emit(&mut webview_mut, "allItems", Some(items))?;
-    let feeds = db::send_all_feeds(&connection)?;
+    let feeds = db::send_all_channels(&connection)?;
     event::emit(&mut webview_mut, "allChannels", Some(feeds))?;
     Ok(())
   });
@@ -62,8 +66,8 @@ fn setup(webview: &mut Webview, _message: String) {
             )?;
           }
           GetChannels {} => {
-            let feeds = db::send_all_feeds(&connection)?;
-            event::emit(&mut webview_mut, "allChannels", Some(feeds))?
+            let channels = db::send_all_channels(&connection)?;
+            event::emit(&mut webview_mut, "allChannels", Some(channels))?
           }
           GetItems {} => {
             let items = db::send_all_items(&connection)?;
