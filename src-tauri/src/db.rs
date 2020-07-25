@@ -17,7 +17,10 @@ pub async fn subscribe_to_feed(
   url: &str,
   connection: &SqliteConnection,
 ) -> Result<models::SendChannel> {
-  let channel_xml = surf::get(url).recv_bytes().await.map_err(Error::msg)?;
+  let channel_xml = surf::get(format_url(url))
+    .recv_bytes()
+    .await
+    .map_err(Error::msg)?;
   let rss_channel = rss::Channel::read_from(&channel_xml[..])?;
   let channel_model = add_feed(&rss_channel, url, connection)?;
   for item in rss_channel.into_items() {
@@ -142,12 +145,12 @@ pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
   // TODO use a thread pool here?
   // TODO handle offline elegantly
   let all_refresh_requests = all_channels.iter().map(|feed| {
-    surf::get(
+    surf::get(format_url(
       feed
         .url
         .as_ref()
         .expect("somehow stored a feed with no url"),
-    )
+    ))
     .recv_bytes()
   });
   let all_new_xml = try_join_all(all_refresh_requests)
@@ -157,7 +160,7 @@ pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
     .iter()
     .map(|feed_xml| rss::Channel::read_from(&feed_xml[..]));
   for (channel, new_channel) in all_channels.iter().zip(all_new_channels) {
-    refresh_feed(channel, new_channel?, connection);
+    refresh_feed(channel, new_channel?, connection)?;
   }
   Ok(())
 }
