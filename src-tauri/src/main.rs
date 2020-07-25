@@ -31,15 +31,13 @@ fn setup(webview: &mut Webview, _message: String) {
   // TODO - handle offline refreshes elegantly
   // TODO - learn how async works and multithread everywhere u can
   let refresh_result: Result<()> = smol::run(async {
-    let connection = db::connect_to_db()?;
-    db::refresh_all_channels(&connection).await?;
-    let items = db::send_all_items(&connection)?;
-    event::emit(&mut webview_mut, "allItems", Some(items))?;
-    let feeds = db::send_all_channels(&connection)?;
-    event::emit(&mut webview_mut, "allChannels", Some(feeds))?;
+    let connection = db::connect_to_db();
+    db::refresh_all_channels(&connection?).await?;
     Ok(())
   });
   emit_error_if_necessary(refresh_result, &mut webview_mut);
+  let init_result = init(&mut webview_mut);
+  emit_error_if_necessary(init_result, &mut webview_mut);
 
   tauri::event::listen("", move |msg| {
     let msg = match msg {
@@ -80,6 +78,15 @@ fn setup(webview: &mut Webview, _message: String) {
 
     emit_error_if_necessary(msg_result, &mut webview_mut)
   });
+}
+
+fn init(webview: &mut WebviewMut) -> Result<()> {
+  let connection = db::connect_to_db()?;
+  let items = db::send_all_items(&connection)?;
+  event::emit(webview, "allItems", Some(items))?;
+  let feeds = db::send_all_channels(&connection)?;
+  event::emit(webview, "allChannels", Some(feeds))?;
+  Ok(())
 }
 
 fn emit_error_if_necessary(possible_err: Result<()>, webview: &mut WebviewMut) {
