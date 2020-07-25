@@ -57,10 +57,16 @@ fn setup(webview: &mut Webview, _message: String) {
         match serde_json::from_str(&msg)? {
           Subscribe { url } => {
             let channel = db::subscribe_to_feed(&url, &connection).await?;
+            let new_items = db::send_items_by_feed(channel.id, &connection)?;
             event::emit(
               &mut webview_mut,
-              String::from("subscribed"),
+              String::from("newChannel"),
               Some(channel),
+            )?;
+            event::emit(
+              &mut webview_mut,
+              String::from("newItems"),
+              Some(new_items),
             )?;
           }
           GetChannels {} => {
