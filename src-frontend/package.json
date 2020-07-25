@@ -23,6 +23,7 @@
     "typescript": "^3.9.3"
   },
   "dependencies": {
+    "fp-ts": "^2.7.1",
     "sirv-cli": "^0.4.4"
   }
 }
