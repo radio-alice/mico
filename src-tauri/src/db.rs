@@ -57,7 +57,7 @@ fn add_feed(
       dsl::rss
         .select(dsl::id)
         .filter(dsl::feed_id.is_null())
-        .order(dsl::pub_date.desc())
+        .filter(dsl::title.eq(channel.title()))
         .limit(1)
         .load(connection)?[0],
     )
@@ -164,9 +164,9 @@ fn get_items_by_feed(
 }
 pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
   let all_channels = get_all_channels(connection)?;
-  // handle all these requests together so that we can join the asyncs together
   // TODO use a thread pool here?
   // TODO handle offline elegantly
+  // handle all these requests together so that we can join the asyncs together
   let all_refresh_requests = all_channels.iter().map(|feed| {
     surf::get(format_url(
       feed
