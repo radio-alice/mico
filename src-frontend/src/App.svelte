@@ -36,7 +36,16 @@
 
 <style>
   ul {
-    margin: var(--s1) auto;
+    margin: var(--s1);
+    max-width: max-content;
+  }
+  summary::marker,
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  details {
+    border: var(--s-5) solid var(--light3);
+    padding: var(--s1);
   }
 </style>
 
@@ -51,8 +60,10 @@
         <details>
           <summary>
             <h3>{item.title}</h3>
-            <p>{feedTitleFromId(item.feed_id)}</p>
-            <p>{item.date}</p>
+            <h4>
+              {feedTitleFromId(item.feed_id)} ––
+              <span class="date">{item.date}</span>
+            </h4>
           </summary>
           <div>
             {@html item.content}
