@@ -20,6 +20,7 @@ fn main() {
 
 fn setup(webview: &mut Webview, _message: String) {
   let mut webview_mut = webview.as_mut();
+
   // uncomment to clear db at init
   // smol::run(async {
   //   let connection = db::connect_to_db()?;
@@ -27,7 +28,6 @@ fn setup(webview: &mut Webview, _message: String) {
   //   Ok(())
   // }) as Result<()>;
 
-  // TODO - split sending data to client from refreshing
   // TODO - handle offline refreshes elegantly
   // TODO - learn how async works and multithread everywhere u can
   let refresh_result: Result<()> = smol::run(async {
