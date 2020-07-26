@@ -46,7 +46,14 @@
       map((channel) => channel.title),
       getOrElse(() => '')
     )
+  const orderByDate = (itemA: [number, Item], itemB: [number, Item]) =>
+    parseDate(itemB[1].date) - parseDate(itemA[1].date)
 
+  // reorder date string so js can understand it
+  const parseDate = (date: string) => {
+    const mdy = date.split('-')
+    return new Date([mdy[2], mdy[0], mdy[1]].join('-')).getTime()
+  }
   listen('subscribed', console.log)
   listen(Event.AllChannels, channelsToState)
   listen(Event.AllItems, itemsToState)
@@ -81,7 +88,7 @@
     Subscribe
   </button>
   <ul class="stack">
-    {#each Array.from($state.items) as [id, item] (id)}
+    {#each Array.from($state.items).sort(orderByDate) as [id, item] (id)}
       <li>
         <details>
           <summary>
