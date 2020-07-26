@@ -2,8 +2,21 @@
   import { emit, listen } from 'tauri/api/event'
   import { writable } from 'svelte/store'
   import type { Writable } from 'svelte/store'
-  import type { Emission, Model, Reception, Item, Channel } from './models'
-  import { subscribe, Action, arrayToIdMap } from './models'
+  import type {
+    Emission,
+    Model,
+    Reception,
+    Item,
+    Channel,
+    Input,
+  } from './models'
+  import {
+    subscribe,
+    Action,
+    Event,
+    arrayToIdMap,
+    objectToIdTuple,
+  } from './models'
   import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
   import { pipe } from 'fp-ts/lib/function'
 
@@ -11,10 +24,21 @@
     items: new Map(),
     channels: new Map(),
   })
-  const itemsToState = (data: Reception<Item>) =>
+  const itemsToState = (data: Reception<Input<Item>[]>) =>
     state.update((s) => ({ ...s, items: arrayToIdMap(data.payload) }))
-  const channelsToState = (data: Reception<Channel>) => {
+  const channelsToState = (data: Reception<Input<Channel>[]>) => {
     state.update((s) => ({ ...s, channels: arrayToIdMap(data.payload) }))
+  }
+  const newChannelToState = (data: Reception<Input<Channel>>) =>
+    state.update((s) => ({
+      ...s,
+      channels: s.channels.set(...objectToIdTuple(data.payload)),
+    }))
+  const newItemsToState = (data: Reception<Input<Item>[]>) => {
+    state.update((s) => ({
+      ...s,
+      items: new Map([...s.items, ...arrayToIdMap(data.payload)]),
+    }))
   }
   const feedTitleFromId = (id: number): string =>
     pipe(
@@ -24,8 +48,10 @@
     )
 
   listen('subscribed', console.log)
-  listen('allChannels', channelsToState)
-  listen('allItems', itemsToState)
+  listen(Event.AllChannels, channelsToState)
+  listen(Event.AllItems, itemsToState)
+  listen(Event.NewChannel, newChannelToState)
+  listen(Event.NewItems, newItemsToState)
   listen('rust-error', console.log)
 
   const emitToBackend = (emission: Emission) =>

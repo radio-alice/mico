@@ -13,11 +13,13 @@ export interface GetChannels {
 export type Emission = Subscribe | GetChannels
 export interface Reception<T> {
   type: Event
-  payload: [T]
+  payload: T
 }
 export enum Event {
   AllChannels = 'allChannels',
   AllItems = 'allItems',
+  NewChannel = 'newChannel',
+  NewItems = 'newItems',
 }
 export interface Channel {
   url: string
@@ -37,12 +39,12 @@ export interface Model {
   channels: Map<Id, Channel>
 }
 type Id = number
-type Input<T> = T & {
+export type Input<T> = T & {
   id: Id
 }
-const objectToIdTuple = <T>(input: Input<T>): [Id, T] => [
+export const objectToIdTuple = <T>(input: Input<T>): [Id, T] => [
   input.id,
   { ...input },
 ]
-export const arrayToIdMap = <T>(inputs: Array<T>) =>
+export const arrayToIdMap = <T>(inputs: Array<Input<T>>) =>
   new Map<Id, T>(inputs.map(objectToIdTuple))
