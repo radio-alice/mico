@@ -5,6 +5,7 @@ use chrono::NaiveDateTime;
 use diesel::dsl::now;
 use diesel::prelude::*;
 use futures::future::try_join_all;
+use std::str::FromStr;
 
 const DB_PATH: &str = "./test.db";
 
@@ -33,17 +34,20 @@ fn add_feed(
   url: &str,
   connection: &SqliteConnection,
 ) -> Result<models::Channel> {
-  let pub_date = match channel.pub_date() {
-    Some(date) => parse_rss_date(date)?,
-    None => match channel.last_build_date() {
-      Some(date) => parse_rss_date(date)?,
-      None => diesel::select(now).first(connection)?,
-    },
-  };
+  let pub_date_str = channel.pub_date().or_else(|| {
+    channel.last_build_date().or_else(|| {
+      channel
+        .dublin_core_ext()
+        .map(|dc_ext| &dc_ext.dates()[0][..])
+    })
+  });
+  let parsed_date = parse_rss_date(pub_date_str)
+    .unwrap_or(diesel::select(now).first(connection)?);
+
   let new_channel = models::NewChannel {
     title: channel.title(),
     url,
-    pub_date,
+    pub_date: parsed_date,
   };
   let feed_id = connection.transaction(|| -> Result<i32> {
     diesel::insert_or_ignore_into(dsl::rss)
@@ -61,18 +65,40 @@ fn add_feed(
   Ok(models::Channel {
     id: feed_id,
     url: Some(channel.link().into()),
-    pub_date,
+    pub_date: parsed_date,
     title: Some(channel.title().into()),
   })
 }
-fn parse_rss_date(date: &str) -> Result<NaiveDateTime> {
-  Ok(NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")?)
+fn parse_rss_date(maybe_date: Option<&str>) -> Option<NaiveDateTime> {
+  match maybe_date {
+    Some(date) => {
+      if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")
+      {
+        Some(real_date)
+      } else if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
+      {
+        Some(real_date)
+      } else {
+        NaiveDateTime::from_str(date).ok()
+      }
+    }
+    None => None,
+  }
 }
+
 fn add_article(
   item: rss::Item,
   feed_id: i32,
   connection: &SqliteConnection,
 ) -> Result<()> {
+  let pub_date_str = item
+    .pub_date()
+    .or_else(|| item.dublin_core_ext().map(|dc_ext| &dc_ext.dates()[0][..]));
+  let parsed_date = parse_rss_date(pub_date_str)
+    .unwrap_or(diesel::select(now).first(connection)?);
+
   let new_item = models::NewItem {
     url: match item.link() {
       Some(url) => Some(url),
@@ -93,10 +119,7 @@ fn add_article(
       },
       Some(content) => content,
     },
-    pub_date: match item.pub_date() {
-      Some(date) => parse_rss_date(date)?,
-      None => diesel::select(now).first(connection)?,
-    },
+    pub_date: parsed_date,
     read: false,
   };
   diesel::insert_or_ignore_into(dsl::rss)
@@ -170,16 +193,14 @@ fn refresh_feed(
   connection: &SqliteConnection,
 ) -> Result<()> {
   // check if we can tell it *doesn't* need a refresh
-  match (new_feed.pub_date(), new_feed.last_build_date()) {
-    (Some(date), _) | (_, Some(date)) => {
-      if parse_rss_date(date)? <= feed.pub_date {
-        return Ok(());
-      }
+  if let Some(date) =
+    parse_rss_date(new_feed.pub_date().or_else(|| new_feed.last_build_date()))
+  {
+    if date <= feed.pub_date {
+      return Ok(());
     }
-
-    // needs a refresh
-    (_, _) => (),
   };
+  // needs refresh
   add_new_articles_to_db(feed.id, new_feed, connection)?;
   Ok(())
 }
@@ -208,8 +229,8 @@ fn item_is_not_in_db(
   newest_article_date: NaiveDateTime,
   old_items: &[models::Item],
 ) -> Result<bool> {
-  if let Some(date) = item.pub_date() {
-    Ok(parse_rss_date(date)? > newest_article_date)
+  if let Some(date) = parse_rss_date(item.pub_date()) {
+    Ok(date > newest_article_date)
   } else if let Some(title) = item.title() {
     Ok(
       old_items
