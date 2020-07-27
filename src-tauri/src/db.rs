@@ -284,30 +284,25 @@ pub fn remove_stories_from_unsubbed_feed(
 
 fn parse_rss_date(maybe_date: Option<&str>) -> Option<NaiveDateTime> {
   // TODO - make this smarter
-  match maybe_date {
-    Some(date) => {
-      if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T UT")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T GMT")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
-      {
-        Some(real_date)
-      } else {
-        NaiveDateTime::from_str(date).ok()
-      }
-    }
-    None => None,
-  }
+  maybe_date
+    .map(|date| {
+      NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")
+        .ok()
+        .or_else(|| {
+          NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T UT")
+            .ok()
+            .or_else(|| {
+              NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T GMT")
+                .ok()
+                .or_else(|| {
+                  NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
+                    .ok()
+                    .or_else(|| NaiveDateTime::from_str(date).ok())
+                })
+            })
+        })
+    })
+    .flatten()
 }
 fn create_enclosure_html(
   maybe_media: Option<&rss::Enclosure>,
