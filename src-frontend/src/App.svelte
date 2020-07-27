@@ -77,9 +77,15 @@
 </script>
 
 <style>
+  main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
   ul {
-    margin: var(--s1);
-    max-width: max-content;
+    padding: var(--s1);
+    width: max-content;
+    align-items: stretch;
   }
   summary::marker,
   summary::-webkit-details-marker {

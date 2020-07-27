@@ -10,7 +10,6 @@ use std::str::FromStr;
 const DB_PATH: &str = "./test.db";
 
 pub fn connect_to_db() -> Result<SqliteConnection> {
-  // need Ok(...?) to convert diesel::Error to anyhow::Error
   Ok(SqliteConnection::establish(DB_PATH)?)
 }
 
