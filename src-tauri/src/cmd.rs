@@ -4,6 +4,5 @@ use serde::Deserialize;
 #[serde(tag = "cmd", rename_all = "camelCase")]
 pub enum Cmd {
   Subscribe { url: String },
-  GetChannels {},
-  GetItems {},
+  ExternalLink { url: String },
 }

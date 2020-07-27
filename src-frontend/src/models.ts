@@ -1,16 +1,18 @@
 export enum Action {
-  GetChannels = 'getChannels',
   Subscribe = 'subscribe',
+  ExternalLink = 'externalLink',
 }
 export interface Subscribe {
   cmd: Action.Subscribe
   url: string
 }
-export const subscribe = (url: string) => ({ cmd: Action.Subscribe, url })
-export interface GetChannels {
-  cmd: Action.GetChannels
+export interface ExternalLink {
+  cmd: Action.ExternalLink
+  url: string
 }
-export type Emission = Subscribe | GetChannels
+export const subscribe = (url: string) => ({ cmd: Action.Subscribe, url })
+export const externalLink = (url: string) => ({ cmd: Action.ExternalLink, url })
+export type Emission = Subscribe | ExternalLink
 export interface Reception<T> {
   type: Event
   payload: T

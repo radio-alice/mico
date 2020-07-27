@@ -11,9 +11,9 @@
     Input,
   } from './models'
   import {
-    subscribe,
-    Action,
     Event,
+    externalLink,
+    subscribe,
     arrayToIdMap,
     objectToIdTuple,
   } from './models'
@@ -59,12 +59,21 @@
   listen(Event.AllItems, itemsToState)
   listen(Event.NewChannel, newChannelToState)
   listen(Event.NewItems, newItemsToState)
-  listen('rust-error', console.log)
+  listen('rust-error', console.error)
 
   const emitToBackend = (emission: Emission) =>
     emit('', JSON.stringify(emission))
 
   let newChannelUrl = ''
+  const openLinksInBrowser = (event) => {
+    if (
+      event.target.tagName.toUpperCase() === 'A' &&
+      event.target.href.startsWith('http')
+    ) {
+      event.preventDefault()
+      emitToBackend(externalLink(event.target.href))
+    }
+  }
 </script>
 
 <style>
@@ -82,6 +91,7 @@
   }
 </style>
 
+<svelte:window on:click={openLinksInBrowser} />
 <main>
   <input type="text" bind:value={newChannelUrl} placeholder="new feed url" />
   <button on:click={() => emitToBackend(subscribe(newChannelUrl))}>

@@ -69,13 +69,8 @@ fn setup(webview: &mut Webview, _message: String) {
               Some(new_items),
             )?;
           }
-          GetChannels {} => {
-            let channels = db::send_all_channels(&connection)?;
-            event::emit(&mut webview_mut, "allChannels", Some(channels))?
-          }
-          GetItems {} => {
-            let items = db::send_all_items(&connection)?;
-            event::emit(&mut webview_mut, "allItems", Some(items))?
+          ExternalLink { url } => {
+            open::that(url)?;
           }
         }
         Ok(())
