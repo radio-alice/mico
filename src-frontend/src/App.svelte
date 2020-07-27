@@ -87,13 +87,12 @@
     width: max-content;
     align-items: stretch;
   }
-  summary::marker,
-  summary::-webkit-details-marker {
-    display: none;
-  }
   details {
     border: var(--s-5) solid var(--light3);
     padding: var(--s1);
+  }
+  .divider {
+    margin: 0 var(--s0);
   }
 </style>
 
@@ -110,8 +109,13 @@
           <summary>
             <h3>{item.title}</h3>
             <h4>
-              {feedTitleFromId(item.feed_id)} ––
+              {feedTitleFromId(item.feed_id)}
+              <span class="divider">⚉</span>
               <span class="date">{item.date}</span>
+              <span class="divider">⚉</span>
+              <span>
+                <a href={item.url}>link</a>
+              </span>
             </h4>
           </summary>
           <div>

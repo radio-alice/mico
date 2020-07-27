@@ -89,3 +89,10 @@ pre {
 .stack * + * {
   margin-top: var(--space);
 }
+summary::marker,
+summary::-webkit-details-marker {
+  display: none;
+}
+a {
+  color: var(--dark3);
+}
