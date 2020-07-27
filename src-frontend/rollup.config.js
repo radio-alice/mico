@@ -11,7 +11,7 @@ const production = !process.env.ROLLUP_WATCH
 export default {
   input: 'src/main.ts',
   output: {
-    sourcemap: true,
+    sourcemap: false,
     format: 'iife',
     name: 'app',
     file: 'public/build/bundle.js',
@@ -46,7 +46,7 @@ export default {
 
     // Watch the `public` directory and refresh the
     // browser on changes when not in production
-    !production && livereload('public'),
+    // !production && livereload('public'),
 
     // If we're building for production (npm run build
     // instead of npm run dev), minify
