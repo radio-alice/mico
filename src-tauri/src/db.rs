@@ -70,32 +70,6 @@ fn add_feed(
     title: Some(channel.title().into()),
   })
 }
-fn parse_rss_date(maybe_date: Option<&str>) -> Option<NaiveDateTime> {
-  match maybe_date {
-    Some(date) => {
-      if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T UT")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T GMT")
-      {
-        Some(real_date)
-      } else if let Ok(real_date) =
-        NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
-      {
-        Some(real_date)
-      } else {
-        NaiveDateTime::from_str(date).ok()
-      }
-    }
-    None => None,
-  }
-}
 
 fn add_article(
   item: rss::Item,
@@ -107,6 +81,13 @@ fn add_article(
     .or_else(|| item.dublin_core_ext().map(|dc_ext| &dc_ext.dates()[0][..]));
   let parsed_date = parse_rss_date(pub_date_str)
     .unwrap_or(diesel::select(now).first(connection)?);
+
+  // concat possible media embed with content (no idea why it won't fmt)
+  let media =
+    create_enclosure_html(item.enclosure()).unwrap_or_else(|| "".to_string());
+  let content = media + item.content()
+                            .or_else(|| item.description())
+                            .unwrap_or("They didn't give us any content. Click the link to view article (hopefully 🥵).");
 
   let new_item = models::NewItem {
     url: match item.link() {
@@ -121,13 +102,7 @@ fn add_article(
       None => "[Untitled Post]",
     },
     feed_id,
-    content: match item.content() {
-      None => match item.description() {
-        Some(description) => description,
-        None => "They didn't give us any content. Click the link to view article (hopefully 🥵).",
-      },
-      Some(content) => content,
-    },
+    content: &content,
     pub_date: parsed_date,
     read: false,
   };
@@ -233,24 +208,6 @@ fn add_new_articles_to_db(
   Ok(())
 }
 
-fn item_is_not_in_db(
-  item: &rss::Item,
-  newest_article_date: NaiveDateTime,
-  old_items: &[models::Item],
-) -> Result<bool> {
-  if let Some(date) = parse_rss_date(item.pub_date()) {
-    Ok(date > newest_article_date)
-  } else if let Some(title) = item.title() {
-    Ok(
-      old_items
-        .iter()
-        .any(|item| item.title != Some(title.into())),
-    )
-  } else {
-    Ok(true)
-  }
-}
-
 pub fn send_all_channels(
   connection: &SqliteConnection,
 ) -> Result<Vec<models::SendChannel>> {
@@ -322,6 +279,69 @@ pub fn remove_stories_from_unsubbed_feed(
 // TODO add tags to articles
 // TODO rm tags from feeds
 // TODO rm tags from articles
+
+fn parse_rss_date(maybe_date: Option<&str>) -> Option<NaiveDateTime> {
+  // TODO - make this smarter
+  match maybe_date {
+    Some(date) => {
+      if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T %z")
+      {
+        Some(real_date)
+      } else if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T UT")
+      {
+        Some(real_date)
+      } else if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T GMT")
+      {
+        Some(real_date)
+      } else if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
+      {
+        Some(real_date)
+      } else {
+        NaiveDateTime::from_str(date).ok()
+      }
+    }
+    None => None,
+  }
+}
+fn create_enclosure_html(
+  maybe_media: Option<&rss::Enclosure>,
+) -> Option<String> {
+  maybe_media
+    .map(|media| {
+      match media.mime_type().split('/').collect::<Vec<&str>>().first() {
+        Some(&"audio") => {
+          Some(format!("<audio src=\"{}\" controls></audio>", media.url()))
+        }
+        Some(&"video") => {
+          Some(format!("<video src=\"{}\" controls></video>", media.url()))
+        }
+        Some(&"image") => Some(format!("<img src=\"{}\">", media.url())),
+        _ => None,
+      }
+    })
+    .flatten()
+}
+fn item_is_not_in_db(
+  item: &rss::Item,
+  newest_article_date: NaiveDateTime,
+  old_items: &[models::Item],
+) -> Result<bool> {
+  if let Some(date) = parse_rss_date(item.pub_date()) {
+    Ok(date > newest_article_date)
+  } else if let Some(title) = item.title() {
+    Ok(
+      old_items
+        .iter()
+        .any(|item| item.title != Some(title.into())),
+    )
+  } else {
+    Ok(true)
+  }
+}
 
 fn format_url(url: &str) -> String {
   if !url.starts_with("http") {
