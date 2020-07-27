@@ -19,6 +19,8 @@
   } from './models'
   import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
   import { pipe } from 'fp-ts/lib/function'
+  import toast from './toast'
+  import Toast from './Toast.svelte'
 
   const state: Writable<Model> = writable({
     items: new Map(),
@@ -46,6 +48,11 @@
       map((channel) => channel.title),
       getOrElse(() => '')
     )
+  const handleError = (err: Reception<string>) =>
+    err.payload.startsWith('CouldntResolveHost')
+      ? toast.trigger('ur offline! I think!', true)
+      : toast.trigger(err.payload, true)
+
   const orderByDate = (itemA: [number, Item], itemB: [number, Item]) =>
     parseDate(itemB[1].date) - parseDate(itemA[1].date)
 
@@ -59,7 +66,7 @@
   listen(Event.AllItems, itemsToState)
   listen(Event.NewChannel, newChannelToState)
   listen(Event.NewItems, newItemsToState)
-  listen('rust-error', console.error)
+  listen('rust-error', handleError)
 
   const emitToBackend = (emission: Emission) =>
     emit('', JSON.stringify(emission))
@@ -81,6 +88,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: absolute;
   }
   ul {
     padding: var(--s1);
@@ -90,6 +98,10 @@
   details {
     border: var(--s-5) solid var(--light3);
     padding: var(--s1);
+  }
+  summary::marker,
+  summary::-webkit-details-marker {
+    display: none;
   }
   .divider {
     margin: 0 var(--s0);
@@ -126,3 +138,4 @@
     {/each}
   </ul>
 </main>
+<Toast />
