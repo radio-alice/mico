@@ -146,9 +146,8 @@ fn get_items_by_feed(
 }
 pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
   let all_channels = get_all_channels(connection)?;
-  // TODO use a thread pool here?
-  // TODO handle offline elegantly
-  // handle all these requests together so that we can join the asyncs together
+
+  // join all these requests together so that we can take advantage of async
   let all_refresh_requests = all_channels.iter().map(|feed| {
     surf::get(format_url(
       feed
@@ -174,11 +173,11 @@ fn refresh_feed(
   new_feed: rss::Channel,
   connection: &SqliteConnection,
 ) -> Result<()> {
-  // check if we can tell it *doesn't* need a refresh
   if let Some(date) =
     parse_rss_date(new_feed.pub_date().or_else(|| new_feed.last_build_date()))
   {
     if date <= feed.pub_date {
+      //doesn't need refresh
       return Ok(());
     }
   };

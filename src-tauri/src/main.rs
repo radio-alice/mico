@@ -29,9 +29,6 @@ fn setup(webview: &mut Webview, _message: String) {
   //   Ok(())
   // }) as Result<()>;
 
-  // TODO - handle offline refreshes elegantly
-  // TODO - learn how async works and multithread everywhere u can
-
   // unwrap reasonable bc we need a db connection to do anything
   let connection = db::connect_to_db().unwrap();
   let refresh_result: Result<()> = smol::run(async {
