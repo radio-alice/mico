@@ -8,6 +8,7 @@ mod models;
 mod schema;
 
 use anyhow::{anyhow, Result};
+use diesel::SqliteConnection;
 use tauri::event;
 use webview_official::{Webview, WebviewMut};
 mod cmd;
@@ -30,20 +31,21 @@ fn setup(webview: &mut Webview, _message: String) {
 
   // TODO - handle offline refreshes elegantly
   // TODO - learn how async works and multithread everywhere u can
+
+  // unwrap reasonable bc we need a db connection to do anything
+  let connection = db::connect_to_db().unwrap();
   let refresh_result: Result<()> = smol::run(async {
-    let connection = db::connect_to_db();
-    db::refresh_all_channels(&connection?).await?;
+    db::refresh_all_channels(&connection).await?;
     Ok(())
   });
   emit_error_if_necessary(refresh_result, &mut webview_mut);
-  let init_result = init(&mut webview_mut);
+  let init_result = init(&mut webview_mut, &connection);
   emit_error_if_necessary(init_result, &mut webview_mut);
 
   tauri::event::listen("", move |msg| {
     let msg = match msg {
       Some(msg) => msg,
       None => {
-        eprintln!("No message!");
         emit_error_if_necessary(
           Err(anyhow!("received empty event")),
           &mut webview_mut,
@@ -53,7 +55,6 @@ fn setup(webview: &mut Webview, _message: String) {
     };
     let msg_result: Result<()> = {
       smol::run(async {
-        let connection = db::connect_to_db()?;
         match serde_json::from_str(&msg)? {
           Subscribe { url } => {
             let channel = db::subscribe_to_feed(&url, &connection).await?;
@@ -81,8 +82,7 @@ fn setup(webview: &mut Webview, _message: String) {
   });
 }
 
-fn init(webview: &mut WebviewMut) -> Result<()> {
-  let connection = db::connect_to_db()?;
+fn init(webview: &mut WebviewMut, connection: &SqliteConnection) -> Result<()> {
   let items = db::send_all_items(&connection)?;
   event::emit(webview, "allItems", Some(items))?;
   let feeds = db::send_all_channels(&connection)?;
