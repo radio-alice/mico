@@ -82,6 +82,10 @@ fn parse_rss_date(maybe_date: Option<&str>) -> Option<NaiveDateTime> {
       {
         Some(real_date)
       } else if let Ok(real_date) =
+        NaiveDateTime::parse_from_str(date, "%a, %d %b %Y %T GMT")
+      {
+        Some(real_date)
+      } else if let Ok(real_date) =
         NaiveDateTime::parse_from_str(date, "%Y-%m-%dT%H:%M:%S%:z")
       {
         Some(real_date)
@@ -103,7 +107,6 @@ fn add_article(
     .or_else(|| item.dublin_core_ext().map(|dc_ext| &dc_ext.dates()[0][..]));
   let parsed_date = parse_rss_date(pub_date_str)
     .unwrap_or(diesel::select(now).first(connection)?);
-  println!("{}", parsed_date);
 
   let new_item = models::NewItem {
     url: match item.link() {

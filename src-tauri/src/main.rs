@@ -22,11 +22,11 @@ fn setup(webview: &mut Webview, _message: String) {
   let mut webview_mut = webview.as_mut();
 
   // uncomment to clear db at init
-  // smol::run(async {
-  //   let connection = db::connect_to_db()?;
-  //   db::delete_all_channels(&connection)?;
-  //   Ok(())
-  // }) as Result<()>;
+  smol::run(async {
+    let connection = db::connect_to_db()?;
+    db::delete_all_channels(&connection)?;
+    Ok(())
+  }) as Result<()>;
 
   // TODO - handle offline refreshes elegantly
   // TODO - learn how async works and multithread everywhere u can
