@@ -5,7 +5,7 @@ description = "mico backend"
 authors = [ "zach" ]
 license = ""
 repository = ""
-default-run = "app"
+default-run = "mico"
 edition = "2018"
 build = "src/build.rs"
 
@@ -31,5 +31,5 @@ embedded-server = [ "tauri/embedded-server" ]
 no-server = [ "tauri/no-server" ]
 
 [[bin]]
-name = "app"
+name = "mico"
 path = "src/main.rs"
