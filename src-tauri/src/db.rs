@@ -23,9 +23,14 @@ pub async fn subscribe_to_feed(
     .map_err(Error::msg)?;
   let rss_channel = rss::Channel::read_from(&channel_xml[..])?;
   let channel_model = add_feed(&rss_channel, url, connection)?;
-  for item in rss_channel.into_items() {
-    add_article(item, channel_model.id, connection)?;
-  }
+  let new_items = rss_channel
+    .into_items()
+    .iter()
+    .map(|item| new_item(item, channel_model.id, connection))
+    .collect::<Vec<models::NewItem>>();
+  diesel::insert_or_ignore_into(dsl::rss)
+    .values(&new_items)
+    .execute(connection)?;
   Ok(models::SendChannel::from(&channel_model))
 }
 fn add_feed(
@@ -70,16 +75,18 @@ fn add_feed(
   })
 }
 
-fn add_article(
-  item: rss::Item,
+fn new_item(
+  item: &rss::Item,
   feed_id: i32,
   connection: &SqliteConnection,
-) -> Result<()> {
+) -> models::NewItem {
   let pub_date_str = item
     .pub_date()
     .or_else(|| item.dublin_core_ext().map(|dc_ext| &dc_ext.dates()[0][..]));
+
+  // not sure how to avoid .unwrap here
   let parsed_date = parse_rss_date(pub_date_str)
-    .unwrap_or(diesel::select(now).first(connection)?);
+    .unwrap_or_else(|| diesel::select(now).first(connection).unwrap());
 
   // concat possible media embed with content (no idea why it won't fmt)
   let media =
@@ -88,27 +95,19 @@ fn add_article(
                             .or_else(|| item.description())
                             .unwrap_or("They didn't give us any content. Click the link to view article (hopefully 🥵).");
 
-  let new_item = models::NewItem {
-    url: match item.link() {
-      Some(url) => Some(url),
-      None => match item.source() {
-        Some(source) => Some(source.url()),
-        None => None,
-      },
-    },
-    title: match item.title() {
-      Some(title) => title,
-      None => "[Untitled Post]",
-    },
+  let url = item
+    .link()
+    .map(|link| link.to_owned())
+    .or_else(|| item.source().map(|source| source.url().to_owned()));
+
+  models::NewItem {
+    url,
+    title: item.title().unwrap_or("[Untitled Post]").to_owned(),
     feed_id,
-    content: &content,
+    content,
     pub_date: parsed_date,
     read: false,
-  };
-  diesel::insert_or_ignore_into(dsl::rss)
-    .values(new_item)
-    .execute(connection)?;
-  Ok(())
+  }
 }
 pub fn delete_all_channels(connection: &SqliteConnection) -> Result<()> {
   diesel::delete(dsl::rss).execute(connection)?;
@@ -199,11 +198,15 @@ fn add_new_articles_to_db(
     .limit(1)
     .load(connection)?[0];
   let old_items = get_items_by_feed(feed_id, connection)?;
-  for item in channel.into_items() {
-    if item_is_not_in_db(&item, newest_article_date, &old_items)? {
-      add_article(item, feed_id, connection)?;
-    }
-  }
+  let new_items = channel
+    .into_items()
+    .iter()
+    .filter(|item| item_is_not_in_db(&item, newest_article_date, &old_items))
+    .map(|item| new_item(&item, feed_id, connection))
+    .collect::<Vec<models::NewItem>>();
+  diesel::insert_or_ignore_into(dsl::rss)
+    .values(&new_items)
+    .execute(connection)?;
   Ok(())
 }
 
@@ -328,17 +331,15 @@ fn item_is_not_in_db(
   item: &rss::Item,
   newest_article_date: NaiveDateTime,
   old_items: &[models::Item],
-) -> Result<bool> {
+) -> bool {
   if let Some(date) = parse_rss_date(item.pub_date()) {
-    Ok(date > newest_article_date)
+    date > newest_article_date
   } else if let Some(title) = item.title() {
-    Ok(
-      old_items
-        .iter()
-        .any(|item| item.title != Some(title.into())),
-    )
+    old_items
+      .iter()
+      .any(|item| item.title != Some(title.into()))
   } else {
-    Ok(true)
+    true
   }
 }
 

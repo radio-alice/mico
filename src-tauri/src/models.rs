@@ -58,13 +58,13 @@ pub struct Item {
 
 #[derive(Insertable)]
 #[table_name = "rss"]
-pub struct NewItem<'a> {
-  pub url: Option<&'a str>,
+pub struct NewItem {
+  pub url: Option<String>,
   pub feed_id: i32,
   pub read: bool,
   pub pub_date: NaiveDateTime,
-  pub content: &'a str,
-  pub title: &'a str,
+  pub content: String,
+  pub title: String,
 }
 
 #[derive(Serialize)]
