@@ -95,6 +95,7 @@ a {
 }
 .main-content {
   flex-basis: var(--measure);
+  flex-grow: 4;
   min-width: var(--measure);
   overflow-y: scroll;
   max-height: 100vh;

@@ -65,12 +65,16 @@
     position: absolute;
     width: 100%;
   }
+  div.row {
+    width: 100%;
+  }
   .items {
     align-items: stretch;
     overflow-y: scroll;
     max-height: 100vh;
   }
   li.item {
+    flex-grow: 1;
     min-height: max-content;
     border-bottom: var(--s-5) solid var(--light3);
     padding: var(--s0);
@@ -89,17 +93,27 @@
   .item.date {
     font-style: italic;
   }
+  .open {
+    background-color: var(--dark4);
+    color: var(--light1);
+  }
 </style>
 
 <svelte:window on:click={openLinksInBrowser} />
 <main>
   <div class="row">
-    <ul class="stack items">
-      <li class="item" on:click={() => openItem(null)}>
+    <ul class="items">
+      <li
+        class="item"
+        on:click={() => openItem(null)}
+        class:open={$store.openItem === null}>
         <p class="item title">Settings</p>
       </li>
       {#each itemsList as [id, item] (id)}
-        <li on:click={() => openItem(id)} class="item stack">
+        <li
+          on:click={() => openItem(id)}
+          class="item stack"
+          class:open={$store.openItem === id}>
           <p class="item title">{item.title}</p>
           <p>{feedTitleFromId(item.feed_id)}</p>
           <p>

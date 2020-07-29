@@ -6,6 +6,7 @@ const createStore = () => {
   const { subscribe, set, update }: Writable<Model> = writable({
     items: new Map(),
     channels: new Map(),
+    openItem: null,
   })
 
   return {
