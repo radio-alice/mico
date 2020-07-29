@@ -10,57 +10,26 @@
     Channel,
     Input,
   } from './models'
-  import {
-    Event,
-    externalLink,
-    subscribe,
-    arrayToIdMap,
-    objectToIdTuple,
-  } from './models'
+  import { Event, externalLink, subscribe } from './models'
   import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
   import { pipe } from 'fp-ts/lib/function'
   import toast from './toast'
   import Toast from './Toast.svelte'
+  import store from './store'
+  import OpenItem from './OpenItem.svelte'
+  const {
+    channelsToState,
+    itemsToState,
+    newChannelToState,
+    newItemsToState,
+    openItem,
+  } = store
 
-  const state: Writable<Model> = writable({
-    items: new Map(),
-    channels: new Map(),
-  })
-  const itemsToState = (data: Reception<Input<Item>[]>) =>
-    state.update((s) => ({ ...s, items: arrayToIdMap(data.payload) }))
-  const channelsToState = (data: Reception<Input<Channel>[]>) => {
-    state.update((s) => ({ ...s, channels: arrayToIdMap(data.payload) }))
-  }
-  const newChannelToState = (data: Reception<Input<Channel>>) =>
-    state.update((s) => ({
-      ...s,
-      channels: s.channels.set(...objectToIdTuple(data.payload)),
-    }))
-  const newItemsToState = (data: Reception<Input<Item>[]>) => {
-    state.update((s) => ({
-      ...s,
-      items: new Map([...s.items, ...arrayToIdMap(data.payload)]),
-    }))
-  }
-  const feedTitleFromId = (id: number): string =>
-    pipe(
-      fromNullable($state.channels.get(id)),
-      map((channel) => channel.title),
-      getOrElse(() => '')
-    )
   const handleError = (err: Reception<string>) =>
     err.payload.startsWith('CouldntResolveHost')
       ? toast.trigger('ur offline! I think!', true)
       : toast.trigger(err.payload, true)
 
-  const orderByDate = (itemA: [number, Item], itemB: [number, Item]) =>
-    parseDate(itemB[1].date) - parseDate(itemA[1].date)
-
-  // reorder date string so js can understand it
-  const parseDate = (date: string) => {
-    const mdy = date.split('-')
-    return new Date([mdy[2], mdy[0], mdy[1]].join('-')).getTime()
-  }
   listen('subscribed', console.log)
   listen(Event.AllChannels, channelsToState)
   listen(Event.AllItems, itemsToState)
@@ -71,6 +40,21 @@
   const emitToBackend = (emission: Emission) =>
     emit('', JSON.stringify(emission))
 
+  const feedTitleFromId = (id: number): string =>
+    pipe(
+      fromNullable($store.channels.get(id)),
+      map((channel) => channel.title),
+      getOrElse(() => '')
+    )
+  const orderByDate = (itemA: [number, Item], itemB: [number, Item]) =>
+    parseDate(itemB[1].date) - parseDate(itemA[1].date)
+  // reorder date string so js can understand it
+  const parseDate = (date: string) => {
+    const mdy = date.split('-')
+    return new Date([mdy[2], mdy[0], mdy[1]].join('-')).getTime()
+  }
+  $: itemsList = Array.from($store.items).sort(orderByDate)
+  $: currentOpenItem = $store.items.get($store.openItem)
   let newChannelUrl = ''
   const openLinksInBrowser = (event) => {
     if (
@@ -89,22 +73,37 @@
     flex-direction: column;
     align-items: center;
     position: absolute;
+    width: 100%;
   }
   ul {
-    padding: var(--s1);
-    width: max-content;
+    flex-basis: 20rem;
+    flex-grow: 1;
     align-items: stretch;
+    overflow-y: scroll;
+    max-height: 100vh;
   }
-  details {
-    border: var(--s-5) solid var(--light3);
-    padding: var(--s1);
+  li.item {
+    min-height: max-content;
+    border-bottom: var(--s-5) solid var(--light3);
+    padding: var(--s0);
+    cursor: pointer;
+    font-size: var(--s-1);
   }
-  summary::marker,
-  summary::-webkit-details-marker {
-    display: none;
+  .item.title {
+    font-size: var(--s0);
   }
-  .divider {
+  .item.stack > * {
+    --space: var(--s-6);
+  }
+  .item.divider {
     margin: 0 var(--s0);
+  }
+  .item.date {
+    font-style: italic;
+  }
+  .placeholder {
+    flex: 2;
+    min-width: var(--measure);
   }
 </style>
 
@@ -114,28 +113,30 @@
   <button on:click={() => emitToBackend(subscribe(newChannelUrl))}>
     Subscribe
   </button>
-  <ul class="stack">
-    {#each Array.from($state.items).sort(orderByDate) as [id, item] (id)}
-      <li>
-        <details>
-          <summary>
-            <h3>{item.title}</h3>
-            <h4>
-              {feedTitleFromId(item.feed_id)}
-              <span class="divider">⚉</span>
-              <span class="date">{item.date}</span>
-              <span class="divider">⚉</span>
-              <span>
-                <a href={item.url}>link</a>
-              </span>
-            </h4>
-          </summary>
-          <div>
-            {@html item.content}
-          </div>
-        </details>
-      </li>
-    {/each}
-  </ul>
+  <div class="row">
+    <ul class="stack">
+      {#each itemsList as [id, item] (id)}
+        <li on:click={() => openItem(id)} class="item stack">
+          <p class="item title">{item.title}</p>
+          <p>{feedTitleFromId(item.feed_id)}</p>
+          <p>
+            <span class="item date">{item.date}</span>
+            <span class="item divider">⚉</span>
+            <span>
+              <a href={item.url}>link</a>
+            </span>
+          </p>
+        </li>
+      {/each}
+    </ul>
+    {#if currentOpenItem}
+      <OpenItem
+        url={currentOpenItem.url}
+        content={currentOpenItem.content}
+        title={currentOpenItem.title} />
+    {:else}
+      <div class="placeholder" />
+    {/if}
+  </div>
 </main>
 <Toast />

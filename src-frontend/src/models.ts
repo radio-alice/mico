@@ -39,14 +39,9 @@ export interface Item {
 export interface Model {
   items: Map<Id, Item>
   channels: Map<Id, Channel>
+  openItem?: Id
 }
-type Id = number
+export type Id = number
 export type Input<T> = T & {
   id: Id
 }
-export const objectToIdTuple = <T>(input: Input<T>): [Id, T] => [
-  input.id,
-  { ...input },
-]
-export const arrayToIdMap = <T>(inputs: Array<Input<T>>) =>
-  new Map<Id, T>(inputs.map(objectToIdTuple))
