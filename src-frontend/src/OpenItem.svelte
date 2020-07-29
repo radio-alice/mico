@@ -3,21 +3,16 @@
 </script>
 
 <style>
-  div.article {
-    flex-basis: var(--measure);
-    flex-grow: 999;
-    min-width: 50%;
-    overflow-y: scroll;
-    max-height: 100vh;
-    height: max-content;
-    line-height: var(--s1);
-    padding: var(--s1);
-    max-width: var(--measure);
+  h2 {
+    line-height: var(--s2);
+  }
+  .stack {
+    --space: var(--s1);
   }
 </style>
 
-<div class="stack article">
-  <h1>{title}</h1>
+<div class="stack main-content">
+  <h2>{title}</h2>
   <a href={url}>view online</a>
   <div class="stack">
     {@html content}

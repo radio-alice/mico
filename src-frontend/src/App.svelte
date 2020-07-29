@@ -1,22 +1,15 @@
 <script lang="ts">
-  import { emit, listen } from 'tauri/api/event'
-  import { writable } from 'svelte/store'
-  import type { Writable } from 'svelte/store'
-  import type {
-    Emission,
-    Model,
-    Reception,
-    Item,
-    Channel,
-    Input,
-  } from './models'
-  import { Event, externalLink, subscribe } from './models'
-  import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
   import { pipe } from 'fp-ts/lib/function'
+  import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
+  import { listen } from 'tauri/api/event'
+  import { emitToBackend } from './api'
+  import type { Reception, Item } from './models'
+  import { Event, externalLink } from './models'
+  import store from './store'
   import toast from './toast'
   import Toast from './Toast.svelte'
-  import store from './store'
   import OpenItem from './OpenItem.svelte'
+  import Settings from './Settings.svelte'
   const {
     channelsToState,
     itemsToState,
@@ -37,9 +30,6 @@
   listen(Event.NewItems, newItemsToState)
   listen('rust-error', handleError)
 
-  const emitToBackend = (emission: Emission) =>
-    emit('', JSON.stringify(emission))
-
   const feedTitleFromId = (id: number): string =>
     pipe(
       fromNullable($store.channels.get(id)),
@@ -55,7 +45,7 @@
   }
   $: itemsList = Array.from($store.items).sort(orderByDate)
   $: currentOpenItem = $store.items.get($store.openItem)
-  let newChannelUrl = ''
+
   const openLinksInBrowser = (event) => {
     if (
       event.target.tagName.toUpperCase() === 'A' &&
@@ -75,9 +65,7 @@
     position: absolute;
     width: 100%;
   }
-  ul {
-    flex-basis: 20rem;
-    flex-grow: 1;
+  .items {
     align-items: stretch;
     overflow-y: scroll;
     max-height: 100vh;
@@ -101,20 +89,15 @@
   .item.date {
     font-style: italic;
   }
-  .placeholder {
-    flex: 2;
-    min-width: var(--measure);
-  }
 </style>
 
 <svelte:window on:click={openLinksInBrowser} />
 <main>
-  <input type="text" bind:value={newChannelUrl} placeholder="new feed url" />
-  <button on:click={() => emitToBackend(subscribe(newChannelUrl))}>
-    Subscribe
-  </button>
   <div class="row">
-    <ul class="stack">
+    <ul class="stack items">
+      <li class="item" on:click={() => openItem(null)}>
+        <p class="item title">Settings</p>
+      </li>
       {#each itemsList as [id, item] (id)}
         <li on:click={() => openItem(id)} class="item stack">
           <p class="item title">{item.title}</p>
@@ -135,7 +118,7 @@
         content={currentOpenItem.content}
         title={currentOpenItem.title} />
     {:else}
-      <div class="placeholder" />
+      <Settings channels={$store.channels} />
     {/if}
   </div>
 </main>
