@@ -3,7 +3,7 @@
   import { fromNullable, map, getOrElse } from 'fp-ts/lib/Option'
   import { listen } from 'tauri/api/event'
   import { emitToBackend } from './api'
-  import type { Reception, Item } from './models'
+  import type { Reception, Item, Channel, Input } from './models'
   import { Event, externalLink } from './models'
   import store from './store'
   import toast from './toast'
@@ -16,17 +16,24 @@
     newChannelToState,
     newItemsToState,
     openItem,
+    unsubscribeFromChannel,
   } = store
 
   const handleError = (err: Reception<string>) =>
     err.payload.startsWith('CouldntResolveHost')
       ? toast.trigger('ur offline! I think!', true)
       : toast.trigger(err.payload, true)
-
-  listen('subscribed', console.log)
+  const unsubscribe = (id: Reception<number>) => {
+    unsubscribeFromChannel(id.payload)
+    toast.trigger(`unsubscribed from ${feedTitleFromId(id.payload)}`, false)
+  }
+  listen(Event.Unsubscribe, unsubscribe)
   listen(Event.AllChannels, channelsToState)
   listen(Event.AllItems, itemsToState)
-  listen(Event.NewChannel, newChannelToState)
+  listen(Event.NewChannel, (data: Reception<Input<Channel>>) => {
+    newChannelToState(data)
+    toast.trigger(`subscribed to channel ${data.payload.title}`, false)
+  })
   listen(Event.NewItems, newItemsToState)
   listen('rust-error', handleError)
 

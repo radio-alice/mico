@@ -12,7 +12,6 @@ const DB_PATH: &str = "./test.db";
 pub fn connect_to_db() -> Result<SqliteConnection> {
   Ok(SqliteConnection::establish(DB_PATH)?)
 }
-
 pub async fn subscribe_to_feed(
   url: &str,
   connection: &SqliteConnection,
@@ -33,6 +32,27 @@ pub async fn subscribe_to_feed(
     .execute(connection)?;
   Ok(models::SendChannel::from(&channel_model))
 }
+pub fn resubscribe_to_feed(
+  id: i32,
+  connection: &SqliteConnection,
+) -> Result<models::SendChannel> {
+  diesel::update(dsl::rss.filter(dsl::id.eq(id)))
+    .set(dsl::subscribed.eq(true))
+    .execute(connection)?;
+  Ok(models::SendChannel::from(
+    &dsl::rss
+      .select((
+        dsl::id,
+        dsl::url.nullable(),
+        dsl::subscribed.nullable(),
+        dsl::pub_date,
+        dsl::title.nullable(),
+      ))
+      .filter(dsl::id.eq(id))
+      .limit(1)
+      .load(connection)?[0],
+  ))
+}
 fn add_feed(
   channel: &rss::Channel,
   url: &str,
@@ -50,9 +70,10 @@ fn add_feed(
     .unwrap_or(diesel::select(now).first(connection)?);
 
   let new_channel = models::NewChannel {
-    title: channel.title(),
     url,
+    subscribed: true,
     pub_date: parsed_date,
+    title: channel.title(),
   };
   let feed_id = connection.transaction(|| -> Result<i32> {
     diesel::insert_or_ignore_into(dsl::rss)
@@ -70,6 +91,7 @@ fn add_feed(
   Ok(models::Channel {
     id: feed_id,
     url: Some(channel.link().into()),
+    subscribed: Some(true),
     pub_date: parsed_date,
     title: Some(channel.title().into()),
   })
@@ -106,7 +128,6 @@ fn new_item(
     feed_id,
     content,
     pub_date: parsed_date,
-    read: false,
   }
 }
 pub fn delete_all_channels(connection: &SqliteConnection) -> Result<()> {
@@ -134,7 +155,6 @@ fn get_items_by_feed(
         dsl::id,
         dsl::url.nullable(),
         dsl::feed_id,
-        dsl::read,
         dsl::pub_date,
         dsl::content,
         dsl::title.nullable(),
@@ -148,15 +168,18 @@ pub async fn refresh_all_channels(connection: &SqliteConnection) -> Result<()> {
   let all_channels = get_all_channels(connection)?;
 
   // join all these requests together so that we can take advantage of async
-  let all_refresh_requests = all_channels.iter().map(|feed| {
-    surf::get(format_url(
-      feed
-        .url
-        .as_ref()
-        .expect("somehow stored a feed with no url"),
-    ))
-    .recv_bytes()
-  });
+  let all_refresh_requests = all_channels
+    .iter()
+    .filter(|channel| channel.subscribed.unwrap_or(true))
+    .map(|channel| {
+      surf::get(format_url(
+        channel
+          .url
+          .as_ref()
+          .expect("somehow stored a feed with no url"),
+      ))
+      .recv_bytes()
+    });
   let all_new_xml = try_join_all(all_refresh_requests)
     .await
     .map_err(Error::msg)?;
@@ -228,6 +251,7 @@ fn get_all_channels(
       .select((
         dsl::id,
         dsl::url.nullable(),
+        dsl::subscribed.nullable(),
         dsl::pub_date,
         dsl::title.nullable(),
       ))
@@ -252,7 +276,6 @@ fn get_all_items(connection: &SqliteConnection) -> Result<Vec<models::Item>> {
         dsl::id,
         dsl::url.nullable(),
         dsl::feed_id,
-        dsl::read,
         dsl::pub_date,
         dsl::content,
         dsl::title.nullable(),
@@ -263,7 +286,9 @@ fn get_all_items(connection: &SqliteConnection) -> Result<Vec<models::Item>> {
   )
 }
 pub fn unsubscribe(feed_id: i32, connection: &SqliteConnection) -> Result<()> {
-  diesel::delete(dsl::rss.filter(dsl::id.eq(feed_id))).execute(connection)?;
+  diesel::update(dsl::rss.filter(dsl::id.eq(feed_id)))
+    .set(dsl::subscribed.eq(false))
+    .execute(connection)?;
   Ok(())
 }
 

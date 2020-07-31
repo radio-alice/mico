@@ -1,7 +1,7 @@
 <script lang="ts">
   import { emitToBackend } from './api'
   import type { Channel } from './models'
-  import { subscribe } from './models'
+  import { subscribe, unsubscribe, resubscribe } from './models'
   export let channels: Map<number, Channel>
   let newChannelUrl = ''
 </script>
@@ -20,7 +20,15 @@
     {#each Array.from(channels) as [id, channel] (id)}
       <li>
         {channel.title}
-        <button>unsubscribe</button>
+        {#if channel.subscribed}
+          <button on:click={() => emitToBackend(unsubscribe(id))}>
+            unsubscribe
+          </button>
+        {:else}
+          <button on:click={() => emitToBackend(resubscribe(id))}>
+            re-subscribe
+          </button>
+        {/if}
       </li>
     {/each}
   </ul>

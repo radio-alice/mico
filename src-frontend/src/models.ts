@@ -1,18 +1,16 @@
 export enum Action {
   Subscribe = 'subscribe',
   ExternalLink = 'externalLink',
+  Unsubscribe = 'unsubscribe',
+  Resubscribe = 'resubscribe',
 }
-export interface Subscribe {
-  cmd: Action.Subscribe
-  url: string
-}
-export interface ExternalLink {
-  cmd: Action.ExternalLink
-  url: string
-}
+export const unsubscribe = (id: Id) => ({ cmd: Action.Unsubscribe, id })
+export const resubscribe = (id: Id) => ({ cmd: Action.Resubscribe, id })
 export const subscribe = (url: string) => ({ cmd: Action.Subscribe, url })
 export const externalLink = (url: string) => ({ cmd: Action.ExternalLink, url })
-export type Emission = Subscribe | ExternalLink
+export interface Emission {
+  cmd: Action
+}
 export interface Reception<T> {
   type: Event
   payload: T
@@ -22,11 +20,13 @@ export enum Event {
   AllItems = 'allItems',
   NewChannel = 'newChannel',
   NewItems = 'newItems',
+  Unsubscribe = 'unsubscribed',
 }
 export interface Channel {
   url: string
   date: string
   title: string
+  subscribed: boolean
 }
 export interface Item {
   url?: string

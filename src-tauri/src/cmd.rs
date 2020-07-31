@@ -5,4 +5,6 @@ use serde::Deserialize;
 pub enum Cmd {
   Subscribe { url: String },
   ExternalLink { url: String },
+  Unsubscribe { id: i32 },
+  Resubscribe { id: i32 },
 }

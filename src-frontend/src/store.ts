@@ -35,6 +35,15 @@ const createStore = () => {
         ...s,
         openItem: itemId,
       })),
+
+    unsubscribeFromChannel: (channelId: Id) =>
+      update((s) => ({
+        ...s,
+        channels: s.channels.set(channelId, {
+          ...s.channels.get(channelId),
+          subscribed: false,
+        }),
+      })),
   }
 }
 

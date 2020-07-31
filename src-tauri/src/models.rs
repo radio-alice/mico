@@ -7,6 +7,7 @@ use serde::Serialize;
 pub struct Channel {
   pub id: i32,
   pub url: Option<String>,
+  pub subscribed: Option<bool>,
   pub pub_date: NaiveDateTime,
   pub title: Option<String>,
 }
@@ -15,6 +16,7 @@ pub struct Channel {
 #[table_name = "rss"]
 pub struct NewChannel<'a> {
   pub url: &'a str,
+  pub subscribed: bool,
   pub pub_date: NaiveDateTime,
   pub title: &'a str,
 }
@@ -24,6 +26,7 @@ pub struct SendChannel {
   pub url: String,
   pub date: String,
   pub title: String,
+  pub subscribed: bool,
 }
 impl SendChannel {
   pub fn from(channel: &Channel) -> Self {
@@ -41,6 +44,7 @@ impl SendChannel {
         .as_ref()
         .expect("somehow got a channel w no title")
         .into(),
+      subscribed: channel.subscribed.unwrap_or(true),
     }
   }
 }
@@ -50,7 +54,6 @@ pub struct Item {
   pub id: i32,
   pub url: Option<String>,
   pub feed_id: Option<i32>,
-  pub read: Option<bool>,
   pub pub_date: NaiveDateTime,
   pub content: Option<String>,
   pub title: Option<String>,
@@ -61,7 +64,6 @@ pub struct Item {
 pub struct NewItem {
   pub url: Option<String>,
   pub feed_id: i32,
-  pub read: bool,
   pub pub_date: NaiveDateTime,
   pub content: String,
   pub title: String,
@@ -72,7 +74,6 @@ pub struct SendItem {
   pub id: i32,
   pub url: Option<String>,
   pub feed_id: i32,
-  pub read: bool,
   pub date: String,
   pub content: String,
   pub title: String,
@@ -84,7 +85,6 @@ impl SendItem {
       id: item.id,
       url: item.url.clone(),
       feed_id: item.feed_id.expect("article with no feed id???"),
-      read: item.read.unwrap_or(false),
       date: item.pub_date.format("%m-%d-%Y").to_string(),
       content: item
         .content

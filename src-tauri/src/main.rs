@@ -70,6 +70,19 @@ fn setup(webview: &mut Webview, _message: String) {
           ExternalLink { url } => {
             open::that(url)?;
           }
+          Unsubscribe { id } => {
+            db::unsubscribe(id, &connection).and_then(|()| {
+              event::emit(
+                &mut webview_mut,
+                String::from("unsubscribed"),
+                Some(id),
+              )
+            })?;
+          }
+          Resubscribe { id } => {
+            let channel = db::resubscribe_to_feed(id, &connection)?;
+            event::emit(&mut webview_mut, "newChannel", Some(channel))?;
+          }
         }
         Ok(())
       })
