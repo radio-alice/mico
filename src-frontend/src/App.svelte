@@ -118,7 +118,7 @@
       </li>
       {#each itemsList as [id, item] (id)}
         <li
-          on:click={() => openItem(id)}
+          on:mousedown={() => openItem(id)}
           class="item stack"
           class:open={$store.openItem === id}>
           <p class="item title">{item.title}</p>
