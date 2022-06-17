@@ -17,7 +17,7 @@ surf = "1.0.3"
 anyhow = "1.0.31"
 smol = "0.3.2"
 chrono = "0.4.13"
-diesel = { version = "1.4.5", features = [ "sqlite", "chrono" ] }
+diesel = { version = "1.4.6", features = [ "sqlite", "chrono" ] }
 webview_official = "0.0.1"
 tauri = { version = "0.8.0", features = [ "all-api" ] }
 futures = "0.3.5"
